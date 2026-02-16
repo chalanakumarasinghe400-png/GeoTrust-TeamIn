@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "208170812134",
+    "project_id": "geotrust-gen1",
+    "storage_bucket": "geotrust-gen1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:208170812134:android:1617451003683614c33127",
+        "android_client_info": {
+          "package_name": "com.example.geotrust"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1WRM638Vx2bRt6dDE-wtgz9-K8fThp9M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
