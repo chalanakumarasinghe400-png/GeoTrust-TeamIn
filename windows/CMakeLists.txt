@@ -2,6 +2,11 @@
 cmake_minimum_required(VERSION 3.14)
 project(geotrust LANGUAGES CXX)
 
+# CMake 4 removed compatibility with very old policy versions (<3.5).
+# Some transitive dependencies (for example Firebase C++ SDK) still declare
+# old minimums, so set the project-wide minimum policy compatibility.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "geotrust")
