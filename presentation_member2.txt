@@ -1,0 +1,13 @@
+Member 2: Database & Repository (≈ 330 words / ~2.5 mins)
+
+"Hello. My responsibility was integrating and isolating all database access so our app remains maintainable and easy to swap to another backend in the future.
+
+To achieve this I introduced a small Repository layer. There is an abstract DbRepository (lib/db_repository.dart) and a SupabaseRepository implementation (lib/supabase_repository.dart). The Supabase-specific calls (queries, realtime streams, and storage uploads) are contained inside that implementation only. The app still initializes Supabase in main() because the SDK needs startup configuration, but every data access in the app goes through the repository interface.
+
+LedgerService, which is the app’s central state manager, now depends on DbRepository rather than calling Supabase directly. That means the widgets and UI code were not changed at all—presenters can confidently say the UI interacts with LedgerService exactly as before. If we ever change databases, we only need to replace or reimplement DbRepository for the new provider and adapt the JSON ↔ model mapping; the UI and most business logic remain untouched.
+
+On the data-model side, our domain classes (for example, TransportPermit and AppUser in lib/models/models.dart) include fromJson and toJson methods that convert raw Map/JSON records into safe Dart objects. I added sensible null checks and defaults in these mappers so missing fields do not crash the app—e.g., parse dates carefully and default missing numeric fields to 0.0 when appropriate.
+
+Other practical contributions: offline unloads and small offline queues are cached using shared_preferences, and image uploads (driver verification photos) are handled via the repository.uploadBinary/getPublicUrl methods so storage logic is not spread across UI code.
+
+In short: the database layer is centralized, domain mappers make incoming JSON safe to use, and the UI was left unchanged. For presenters: emphasize that swapping the backend later requires editing one implementation file and the mappers—no UI rewrites are necessary."

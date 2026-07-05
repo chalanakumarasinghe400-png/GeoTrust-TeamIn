@@ -16,6 +16,8 @@ import 'supabase_config.dart';
 import 'firebase_options.dart';
 import 'models/models.dart';
 import 'widgets/empty_state.dart';
+import 'db_repository.dart';
+import 'supabase_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +46,7 @@ Future<void> main() async {
 
 class LedgerService extends ChangeNotifier {
   // --- NEW INVENTORY LOGIC ---
-  final _supabase = Supabase.instance.client;
+  final DbRepository _repo;
   double yardInventoryCubes = 40.0; // What they currently have in stock
   final double maxYardCapacity =
       100.0; // The max GSMB limit they are allowed to hold
@@ -77,7 +79,8 @@ class LedgerService extends ChangeNotifier {
   StreamSubscription? _inventorySubscription;
   StreamSubscription? _connectivitySubscription;
 
-  LedgerService() {
+  LedgerService({DbRepository? repository})
+    : _repo = repository ?? SupabaseRepository() {
     Connectivity().checkConnectivity().then((result) {
       isOffline = result == ConnectivityResult.none;
       notifyListeners();
@@ -100,10 +103,12 @@ class LedgerService extends ChangeNotifier {
   void subscribeToPermitChanges() {
     if (currentLocationId == null) return;
     _permitSubscription?.cancel();
-    _permitSubscription = _supabase
-        .from('permits')
-        .stream(primaryKey: ['id'])
-        .eq('origin_location_id', currentLocationId!)
+    _permitSubscription = _repo
+        .streamTable(
+          'permits',
+          primaryKey: 'id',
+          eq: {'origin_location_id': currentLocationId!},
+        )
         .listen(
           (data) {
             _permits.clear();
@@ -114,7 +119,6 @@ class LedgerService extends ChangeNotifier {
             notifyListeners();
           },
           onError: (error) {
-            // Handle stream error
             print('Permit stream error: $error');
           },
         );
@@ -123,10 +127,12 @@ class LedgerService extends ChangeNotifier {
   void subscribeToInventory() {
     if (currentLocationId == null) return;
     _inventorySubscription?.cancel();
-    _inventorySubscription = _supabase
-        .from('locations')
-        .stream(primaryKey: ['id'])
-        .eq('id', currentLocationId!)
+    _inventorySubscription = _repo
+        .streamTable(
+          'locations',
+          primaryKey: 'id',
+          eq: {'id': currentLocationId!},
+        )
         .listen(
           (data) {
             if (data.isNotEmpty) {
@@ -165,16 +171,12 @@ class LedgerService extends ChangeNotifier {
 
   Future<bool> loadUserProfile(String userId) async {
     try {
-      final profile = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+      final profile = await _repo.selectOne('profiles', 'id', userId);
 
-      final locs = await _supabase
-          .from('locations')
-          .select()
-          .eq('owner_id', userId);
+      final locs = await _repo.select(
+        'locations',
+        filters: {'owner_id': userId},
+      );
 
       // Cache data locally for offline auto-login support
       final prefs = await SharedPreferences.getInstance();
@@ -249,11 +251,13 @@ class LedgerService extends ChangeNotifier {
       profilePicBase64 = base64String;
       notifyListeners();
 
-      // Save to Supabase
-      await _supabase
-          .from('profiles')
-          .update({'profile_photo': base64String})
-          .eq('id', currentUser!.id);
+      // Save to DB via repository
+      await _repo.update(
+        'profiles',
+        {'profile_photo': base64String},
+        eqColumn: 'id',
+        eqValue: currentUser!.id,
+      );
 
       // Update local cache
       final prefs = await SharedPreferences.getInstance();
@@ -279,10 +283,12 @@ class LedgerService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _supabase
-          .from('profiles')
-          .update({'profile_photo': null})
-          .eq('id', currentUser!.id);
+      await _repo.update(
+        'profiles',
+        {'profile_photo': null},
+        eqColumn: 'id',
+        eqValue: currentUser!.id,
+      );
     } catch (e) {
       print("Error removing profile picture: $e");
     }
@@ -291,12 +297,10 @@ class LedgerService extends ChangeNotifier {
   Future<bool> loginWithCredentials(String email, String password) async {
     try {
       // Bypassing Supabase Auth: Checking profiles table directly
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('email', email)
-          .eq('password', password)
-          .maybeSingle();
+      final response = await _repo.selectWhereSingle('profiles', {
+        'email': email,
+        'password': password,
+      });
 
       if (response == null) return false;
 
@@ -363,16 +367,16 @@ class LedgerService extends ChangeNotifier {
     );
 
     try {
-      await _supabase
-          .from('permits')
-          .insert(
-            newPermit.toJson()
-              ..addAll({'origin_location_id': currentLocationId}),
-          );
-      await _supabase
-          .from('locations')
-          .update({'inventory_cubes': currentInventoryCubes - requestedQty})
-          .eq('id', currentLocationId!);
+      await _repo.insert(
+        'permits',
+        newPermit.toJson()..addAll({'origin_location_id': currentLocationId}),
+      );
+      await _repo.update(
+        'locations',
+        {'inventory_cubes': currentInventoryCubes - requestedQty},
+        eqColumn: 'id',
+        eqValue: currentLocationId!,
+      );
       return true; // Transaction Success
     } catch (e) {
       print("Error issuing permit: $e");
@@ -384,13 +388,15 @@ class LedgerService extends ChangeNotifier {
   Future<void> activatePermitAndGenerateCode(String permitId) async {
     final String generatedCode = (100000 + Random().nextInt(900000)).toString();
     try {
-      await _supabase
-          .from('permits')
-          .update({
-            'status': PermitStatus.active.name.toUpperCase(),
-            'permit_code': generatedCode,
-          })
-          .eq('id', permitId);
+      await _repo.update(
+        'permits',
+        {
+          'status': PermitStatus.active.name.toUpperCase(),
+          'permit_code': generatedCode,
+        },
+        eqColumn: 'id',
+        eqValue: permitId,
+      );
     } catch (e) {
       print("Error activating permit: $e");
     }
@@ -412,18 +418,10 @@ class LedgerService extends ChangeNotifier {
 
     try {
       // Corrected PostgREST OR filter formatting
-      final orString = locationIds
-          .map((id) => 'origin_location_id.eq.$id')
-          .join(',');
-      final response = await _supabase
-          .from('permits')
-          .select()
-          .or(orString)
-          .eq('status', 'COMPLETED');
-
-      final allHistory = response
-          .map((json) => TransportPermit.fromJson(json))
-          .toList();
+      final allHistory = (await _repo.getPermitsByOriginIdsAndStatus(
+        locationIds,
+        'COMPLETED',
+      )).map((json) => TransportPermit.fromJson(json)).toList();
 
       for (final permit in allHistory) {
         final location = userLocations.firstWhere(
@@ -455,11 +453,9 @@ class LedgerService extends ChangeNotifier {
   // --- DRIVER HANDSHAKE LOGIC ---
   Future<void> driverLoginWithCode(String code) async {
     try {
-      final response = await _supabase
-          .from('permits')
-          .select()
-          .eq('permit_code', code)
-          .maybeSingle();
+      final response = await _repo.selectWhereSingle('permits', {
+        'permit_code': code,
+      });
 
       if (response == null) throw Exception("Invalid Code.");
 
@@ -472,11 +468,12 @@ class LedgerService extends ChangeNotifier {
       Position position = await _determinePosition();
       print("Driver Origin GPS: ${position.latitude}, ${position.longitude}");
 
-      final originLocation = await _supabase
-          .from('locations')
-          .select('latitude, longitude')
-          .eq('id', permit.originLocationId!)
-          .maybeSingle();
+      final originLocation = await _repo.selectOne(
+        'locations',
+        'id',
+        permit.originLocationId!,
+        columns: ['latitude', 'longitude'],
+      );
 
       if (originLocation != null &&
           originLocation['latitude'] != null &&
@@ -505,10 +502,12 @@ class LedgerService extends ChangeNotifier {
       final newExpiry = DateTime.now().add(const Duration(hours: 12));
       permit.expirationDate = newExpiry;
 
-      await _supabase
-          .from('permits')
-          .update({'expiration_date': newExpiry.toIso8601String()})
-          .eq('id', permit.id);
+      await _repo.update(
+        'permits',
+        {'expiration_date': newExpiry.toIso8601String()},
+        eqColumn: 'id',
+        eqValue: permit.id,
+      );
 
       currentDriverPermit = permit;
 
@@ -529,10 +528,12 @@ class LedgerService extends ChangeNotifier {
   Future<void> cancelExpiredDriverPermit() async {
     if (currentDriverPermit != null) {
       try {
-        await _supabase
-            .from('permits')
-            .update({'status': PermitStatus.cancelled.name.toUpperCase()})
-            .eq('id', currentDriverPermit!.id);
+        await _repo.update(
+          'permits',
+          {'status': PermitStatus.cancelled.name.toUpperCase()},
+          eqColumn: 'id',
+          eqValue: currentDriverPermit!.id,
+        );
       } catch (e) {
         print("Failed to cancel permit on server: $e");
       }
@@ -557,14 +558,13 @@ class LedgerService extends ChangeNotifier {
         final bytes = await photoFile.readAsBytes();
         final path =
             'audits/${currentDriverPermit!.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        await _supabase.storage
-            .from('verifications')
-            .uploadBinary(
-              path,
-              bytes,
-              fileOptions: const FileOptions(contentType: 'image/jpeg'),
-            );
-        photoUrl = _supabase.storage.from('verifications').getPublicUrl(path);
+        await _repo.uploadBinary(
+          'verifications',
+          path,
+          bytes,
+          contentType: 'image/jpeg',
+        );
+        photoUrl = _repo.getPublicUrl('verifications', path);
       } catch (e) {
         print("Photo upload skipped (offline or bucket missing): $e");
       }
@@ -592,29 +592,30 @@ class LedgerService extends ChangeNotifier {
         await prefs.setStringList('offline_unloads', offlineQueue);
       } else {
         // ONLINE SYNC
-        await _supabase
-            .from('permits')
-            .update(payload)
-            .eq('id', currentDriverPermit!.id);
+        await _repo.update(
+          'permits',
+          payload,
+          eqColumn: 'id',
+          eqValue: currentDriverPermit!.id,
+        );
 
         // Detect if unloaded at a known Hardware Store (within ~1km radius)
-        final hardwares = await _supabase
-            .from('locations')
-            .select()
-            .eq('location_type', 'HARDWARE_OWNER');
+        final hardwares = await _repo.getLocationsByType('HARDWARE_OWNER');
         for (var hw in hardwares) {
           final double hwLat = (hw['latitude'] as num).toDouble();
           final double hwLng = (hw['longitude'] as num).toDouble();
 
           if ((hwLat - position.latitude).abs() < 0.05 &&
               (hwLng - position.longitude).abs() < 0.05) {
-            await _supabase
-                .from('locations')
-                .update({
-                  'inventory_cubes':
-                      hw['inventory_cubes'] + currentDriverPermit!.volumeCubes,
-                })
-                .eq('id', hw['id']);
+            await _repo.update(
+              'locations',
+              {
+                'inventory_cubes':
+                    hw['inventory_cubes'] + currentDriverPermit!.volumeCubes,
+              },
+              eqColumn: 'id',
+              eqValue: hw['id'],
+            );
             break;
           }
         }
@@ -642,7 +643,12 @@ class LedgerService extends ChangeNotifier {
           jsonDecode(data) as Map,
         );
         final permitId = payload.remove('permit_id');
-        await _supabase.from('permits').update(payload).eq('id', permitId);
+        await _repo.update(
+          'permits',
+          payload,
+          eqColumn: 'id',
+          eqValue: permitId,
+        );
       } catch (e) {
         pendingQueue.add(data);
       }
@@ -671,16 +677,16 @@ class LedgerService extends ChangeNotifier {
     );
 
     try {
-      await _supabase
-          .from('permits')
-          .insert(
-            newPermit.toJson()
-              ..addAll({'origin_location_id': currentLocationId}),
-          );
-      await _supabase
-          .from('locations')
-          .update({'inventory_cubes': currentInventoryCubes - requestedQty})
-          .eq('id', currentLocationId!);
+      await _repo.insert(
+        'permits',
+        newPermit.toJson()..addAll({'origin_location_id': currentLocationId}),
+      );
+      await _repo.update(
+        'locations',
+        {'inventory_cubes': currentInventoryCubes - requestedQty},
+        eqColumn: 'id',
+        eqValue: currentLocationId!,
+      );
       notifyListeners();
       return true;
     } catch (e) {
