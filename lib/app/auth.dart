@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final success = await ledger.loadUserProfile(savedUserId);
       if (success && mounted) {
         ledger.subscribeToPermitChanges();
-        if (ledger.currentUser?.isMineOwner == true || ledger.currentUser?.isHardwareOwner == true) {
+        if (ledger.currentUserRole == UserRole.mineOwner || ledger.currentUserRole == UserRole.hardwareOwner) {
           ledger.subscribeToInventory();
         }
         ledger.syncOfflineUnloads();
@@ -80,16 +80,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(32),
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 10,
-                    offset: Offset(0, 5),
-                  ),
-                ],
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))],
               ),
               child: SafeArea(
                 bottom: false,
@@ -100,12 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 8),
                     const Text(
                       'GeoTrust Transport',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1.2,
-                      ),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.2),
                     ),
                     const SizedBox(height: 16),
                     const TabBar(
@@ -113,10 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       indicatorWeight: 3,
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.white60,
-                      labelStyle: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                      labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       tabs: [
                         Tab(text: 'Owner Login', icon: Icon(Icons.business)),
                         Tab(text: 'Driver Access', icon: Icon(Icons.local_shipping)),
@@ -136,49 +120,22 @@ class _LoginScreenState extends State<LoginScreen> {
                         constraints: const BoxConstraints(maxWidth: 450),
                         child: Card(
                           elevation: 6,
-                          shadowColor: Colors.black26,
                           color: Theme.of(context).colorScheme.surfaceContainerLow,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           child: Padding(
                             padding: const EdgeInsets.all(32.0),
                             child: Column(
                               children: [
-                                Icon(
-                                  Icons.admin_panel_settings,
-                                  size: 56,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
+                                Icon(Icons.admin_panel_settings, size: 56, color: Theme.of(context).colorScheme.primary),
                                 const SizedBox(height: 16),
-                                const Text(
-                                  'Owner Portal',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 24,
-                                  ),
-                                ),
+                                const Text('Owner Portal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
                                 const SizedBox(height: 8),
-                                Text(
-                                  'Enter your credentials to manage inventory and logistics.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
+                                Text('Enter your credentials to manage inventory and logistics.', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                                 const SizedBox(height: 32),
                                 TextField(
                                   controller: _emailController,
                                   keyboardType: TextInputType.emailAddress,
-                                  decoration: InputDecoration(
-                                    labelText: 'Email Address',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    filled: true,
-                                    fillColor: Theme.of(context).colorScheme.surface,
-                                    prefixIcon: const Icon(Icons.email),
-                                  ),
+                                  decoration: InputDecoration(labelText: 'Email Address', border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)), filled: true, prefixIcon: const Icon(Icons.email)),
                                 ),
                                 const SizedBox(height: 16),
                                 TextField(
@@ -186,73 +143,37 @@ class _LoginScreenState extends State<LoginScreen> {
                                   obscureText: _obscurePassword,
                                   decoration: InputDecoration(
                                     labelText: 'Password',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                                     filled: true,
-                                    fillColor: Theme.of(context).colorScheme.surface,
                                     prefixIcon: const Icon(Icons.lock),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                                      ),
-                                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                    ),
+                                    suffixIcon: IconButton(icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off), onPressed: () => setState(() => _obscurePassword = !_obscurePassword)),
                                   ),
                                 ),
                                 const SizedBox(height: 32),
-                                if (_isLoading)
-                                  const SizedBox(
-                                    height: 56,
-                                    child: Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  )
-                                else
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: 56,
-                                    child: FilledButton(
-                                      style: FilledButton.styleFrom(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(16),
-                                        ),
-                                      ),
-                                      onPressed: () async {
-                                        setState(() => _isLoading = true);
-                                        final success = await ledger.loginWithCredentials(
-                                          _emailController.text,
-                                          _passwordController.text,
-                                        );
-                                        if (mounted) setState(() => _isLoading = false);
-                                        if (success && mounted) {
-                                          ledger.subscribeToPermitChanges();
-                                          if (ledger.currentUser?.isMineOwner == true || ledger.currentUser?.isHardwareOwner == true) {
-                                            ledger.subscribeToInventory();
-                                          }
-                                          ledger.syncOfflineUnloads();
-                                          Navigator.pushReplacement(
-                                            context,
-                                            MaterialPageRoute(builder: (_) => const RolePortalScreen()),
-                                          );
-                                        } else if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Invalid Email or Password.'),
-                                              backgroundColor: Colors.red,
-                                            ),
-                                          );
+                                if (_isLoading) const SizedBox(height: 56, child: Center(child: CircularProgressIndicator()))
+                                else SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: FilledButton(
+                                    style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                                    onPressed: () async {
+                                      setState(() => _isLoading = true);
+                                      final success = await ledger.loginWithCredentials(_emailController.text, _passwordController.text);
+                                      if (mounted) setState(() => _isLoading = false);
+                                      if (success && mounted) {
+                                        ledger.subscribeToPermitChanges();
+                                        if (ledger.currentUserRole == UserRole.mineOwner || ledger.currentUserRole == UserRole.hardwareOwner) {
+                                          ledger.subscribeToInventory();
                                         }
-                                      },
-                                      child: const Text(
-                                        'LOGIN',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
+                                        ledger.syncOfflineUnloads();
+                                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RolePortalScreen()));
+                                      } else if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Email or Password.'), backgroundColor: Colors.red));
+                                      }
+                                    },
+                                    child: const Text('LOGIN', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                                   ),
+                                ),
                               ],
                             ),
                           ),
@@ -267,94 +188,42 @@ class _LoginScreenState extends State<LoginScreen> {
                         constraints: const BoxConstraints(maxWidth: 450),
                         child: Card(
                           elevation: 6,
-                          shadowColor: Colors.black26,
                           color: isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           child: Padding(
                             padding: const EdgeInsets.all(32.0),
                             child: Column(
                               children: [
-                                const Icon(
-                                  Icons.local_shipping,
-                                  size: 56,
-                                  color: Colors.blue,
-                                ),
+                                const Icon(Icons.local_shipping, size: 56, color: Colors.blue),
                                 const SizedBox(height: 16),
-                                const Text(
-                                  'Active Transport Duty',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 24,
-                                  ),
-                                ),
+                                const Text('Active Transport Duty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
                                 const SizedBox(height: 8),
-                                Text(
-                                  'Enter your dispatch code to begin the journey.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
+                                Text('Enter your dispatch code to begin the journey.', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                                 const SizedBox(height: 32),
                                 TextField(
                                   controller: _driverCodeController,
                                   keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    labelText: 'Enter 6-Digit Permit Code',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    filled: true,
-                                    fillColor: Theme.of(context).colorScheme.surface,
-                                    prefixIcon: const Icon(Icons.qr_code),
-                                  ),
+                                  decoration: InputDecoration(labelText: 'Enter Permit Code', border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)), filled: true, prefixIcon: const Icon(Icons.qr_code)),
                                 ),
                                 const SizedBox(height: 24),
                                 SizedBox(
                                   width: double.infinity,
                                   height: 56,
                                   child: FilledButton.icon(
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: Colors.blue.shade700,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
+                                    style: FilledButton.styleFrom(backgroundColor: Colors.blue.shade700, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
                                     onPressed: () async {
                                       setState(() => _isLoading = true);
                                       try {
                                         await ledger.driverLoginWithCode(_driverCodeController.text);
                                         if (mounted) setState(() => _isLoading = false);
-                                        if (mounted) {
-                                          Navigator.pushReplacement(
-                                            context,
-                                            MaterialPageRoute(builder: (_) => const DriverScreen()),
-                                          );
-                                        }
+                                        if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DriverScreen()));
                                       } catch (e) {
                                         if (mounted) setState(() => _isLoading = false);
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                e.toString().replaceAll('Exception: ', ''),
-                                              ),
-                                              backgroundColor: Colors.red,
-                                            ),
-                                          );
-                                        }
+                                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red));
                                       }
                                     },
                                     icon: const Icon(Icons.location_on),
-                                    label: const Text(
-                                      'VERIFY GPS & ENTER',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                    label: const Text('VERIFY GPS & ENTER', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                   ),
                                 ),
                               ],
