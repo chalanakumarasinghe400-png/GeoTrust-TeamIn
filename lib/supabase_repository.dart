@@ -85,7 +85,6 @@ class SupabaseRepository implements DbRepository {
     String? contentType,
   }) async {
     final fileOptions = FileOptions(contentType: contentType ?? 'application/octet-stream');
-    // Supabase storage expects Uint8List
     await _client.storage.from(bucket).uploadBinary(path, Uint8List.fromList(bytes), fileOptions: fileOptions);
   }
 
@@ -94,20 +93,27 @@ class SupabaseRepository implements DbRepository {
     return _client.storage.from(bucket).getPublicUrl(path);
   }
 
+  // --- NEW METHODS FOR THE 8-TABLE SCHEMA ---
+
   @override
-  Future<List<Map<String, dynamic>>> getPermitsByOriginIdsAndStatus(
-    List<String> originIds,
+  Future<List<Map<String, dynamic>>> getMinePermitsByMineIdsAndStatus(
+    List<String> mineIds,
     String status,
   ) async {
-    if (originIds.isEmpty) return [];
-    final orString = originIds.map((id) => 'origin_location_id.eq.$id').join(',');
-    final res = await _client.from('permits').select().or(orString).eq('status', status);
+    if (mineIds.isEmpty) return [];
+    final orString = mineIds.map((id) => 'mine_id.eq.$id').join(',');
+    final res = await _client.from('mine_permits').select().or(orString).eq('status', status);
     return (res as List).map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getLocationsByType(String type) async {
-    final res = await _client.from('locations').select().eq('location_type', type);
+  Future<List<Map<String, dynamic>>> getHardwarePermitsByHardwareIdsAndStatus(
+    List<String> hardwareIds,
+    String status,
+  ) async {
+    if (hardwareIds.isEmpty) return [];
+    final orString = hardwareIds.map((id) => 'hardware_id.eq.$id').join(',');
+    final res = await _client.from('hardware_permits').select().or(orString).eq('status', status);
     return (res as List).map((e) => Map<String, dynamic>.from(e)).toList();
   }
 }
