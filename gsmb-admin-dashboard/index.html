@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GSMB Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">GSMB GeoTrust Oversight</p>
+        <h1>Admin dashboard for locations, overloads, and fraud monitoring</h1>
+        <p class="subtitle">
+          Track transport permits, review hotspots on a live map, and spot risk patterns in seconds.
+        </p>
+      </div>
+      <div class="header-actions">
+        <span class="status-pill" id="dataStatus">Loading live data...</span>
+        <button class="ghost-btn" id="refreshBtn">Refresh data</button>
+        <button class="primary-btn" id="exportBtn">Export report</button>
+      </div>
+    </header>
+
+    <main class="dashboard-shell">
+      <section class="metric-grid" id="metricGrid"></section>
+
+      <section class="controls-panel">
+        <div class="control-group">
+          <label for="searchInput">Search location or permit</label>
+          <input id="searchInput" type="search" placeholder="Mine, hardware store, truck, permit ID..." />
+        </div>
+        <div class="control-group">
+          <label for="regionSelect">Region</label>
+          <select id="regionSelect"></select>
+        </div>
+        <div class="control-group">
+          <label for="riskSelect">Risk level</label>
+          <select id="riskSelect">
+            <option value="all">All risk levels</option>
+            <option value="high">High only</option>
+            <option value="medium">Medium and above</option>
+            <option value="low">Low only</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="two-column-layout">
+        <div class="card map-card">
+          <div class="card-head">
+            <div>
+              <p class="card-kicker">Operational map</p>
+              <h2>Locations and incident clusters</h2>
+            </div>
+            <div class="legend">
+              <span><i class="dot mine"></i>Mines</span>
+              <span><i class="dot hardware"></i>Hardware</span>
+              <span><i class="dot overload"></i>Overloads</span>
+              <span><i class="dot fraud"></i>Fraud</span>
+            </div>
+          </div>
+          <div id="map"></div>
+        </div>
+
+        <div class="stack">
+          <article class="card chart-card">
+            <div class="card-head">
+              <div>
+                <p class="card-kicker">Incident trend</p>
+                <h2>Overloads vs fraud alerts</h2>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="incidentChart"></canvas>
+            </div>
+          </article>
+
+          <article class="card chart-card">
+            <div class="card-head">
+              <div>
+                <p class="card-kicker">Status distribution</p>
+                <h2>Permit outcomes</h2>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="statusChart"></canvas>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="bottom-grid">
+        <article class="card table-card">
+          <div class="card-head">
+            <div>
+              <p class="card-kicker">Flagged records</p>
+              <h2>High priority locations</h2>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Location</th>
+                  <th>Type</th>
+                  <th>Region</th>
+                  <th>Inventory</th>
+                  <th>Open incidents</th>
+                  <th>Risk</th>
+                </tr>
+              </thead>
+              <tbody id="locationTable"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="card detail-card">
+          <div class="card-head">
+            <div>
+              <p class="card-kicker">Selected site</p>
+              <h2>Location profile</h2>
+            </div>
+          </div>
+          <div id="detailPanel" class="detail-panel"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
