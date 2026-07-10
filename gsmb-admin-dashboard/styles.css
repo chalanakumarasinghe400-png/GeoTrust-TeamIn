@@ -77,7 +77,7 @@ h1 {
   font-size: clamp(2rem, 4vw, 4.4rem);
   line-height: 0.98;
   letter-spacing: -0.05em;
-  max-width: 11ch;
+  max-width: 800px;
 }
 
 .subtitle {

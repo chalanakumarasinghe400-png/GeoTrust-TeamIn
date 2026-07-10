@@ -1,8 +1,6 @@
 import 'dart:async';
 
 /// Database repository abstraction used by the app.
-/// Implementations should return plain JSON-like Maps (String->dynamic) so
-/// domain models (TransportPermit, AppUser) can be constructed with fromJson.
 abstract class DbRepository {
   // Streams a table with an optional equality filter. The stream yields lists of rows.
   Stream<List<Map<String, dynamic>>> streamTable(
@@ -46,10 +44,20 @@ abstract class DbRepository {
 
   String getPublicUrl(String bucket, String path);
 
-  Future<List<Map<String, dynamic>>> getPermitsByOriginIdsAndStatus(
-    List<String> originIds,
+  // --- UPDATED FOR NEW SCHEMA ---
+  
+  // Fetches permits specifically for Mines
+  Future<List<Map<String, dynamic>>> getMinePermitsByMineIdsAndStatus(
+    List<String> mineIds,
     String status,
   );
 
-  Future<List<Map<String, dynamic>>> getLocationsByType(String type);
+  // Fetches permits specifically for Hardwares
+  Future<List<Map<String, dynamic>>> getHardwarePermitsByHardwareIdsAndStatus(
+    List<String> hardwareIds,
+    String status,
+  );
+  
+  // Note: getLocationsByType(String type) was removed. 
+  // You can now just call select('mines') or select('hardwares') directly!
 }
