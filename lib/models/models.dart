@@ -42,49 +42,55 @@ extension UserRoleExtension on UserRole {
 class TransportPermit {
   final String id;
   String? permitCode;
-  final String truckNumber;
-  final double volumeCubes;
-  final DateTime transportDate;
-  DateTime expirationDate;
-  final String? originLocationId;
+  final String truckNumberPlate;
+  final double noOfCubes;
+  final DateTime startedDate;
+  DateTime expiryDate;
+  final String? mineId;
+  final String? hardwareId;
   PermitStatus status;
 
   TransportPermit({
     required this.id,
     this.permitCode,
-    required this.truckNumber,
-    required this.volumeCubes,
-    required this.transportDate,
-    required this.expirationDate,
-    this.originLocationId,
-    this.status = PermitStatus.pending,
+    required this.truckNumberPlate,
+    required this.noOfCubes,
+    required this.startedDate,
+    required this.expiryDate,
+    this.mineId,
+    this.hardwareId,
+    this.status = PermitStatus.active,
   });
 
   factory TransportPermit.fromJson(Map<String, dynamic> json) {
     return TransportPermit(
-      id: json['id'].toString(),
+      id: json['permit_id'].toString(),
       permitCode: json['permit_code'],
-      truckNumber: json['truck_number'],
-      volumeCubes: (json['volume_cubes'] as num).toDouble(),
-      transportDate: DateTime.parse(json['transport_date']),
-      expirationDate: DateTime.parse(json['expiration_date']),
+      truckNumberPlate: json['truck_number_plate'],
+      noOfCubes: (json['no_of_cubes'] as num).toDouble(),
+      startedDate: DateTime.parse(json['started_date']),
+      expiryDate: DateTime.parse(json['expiry_date']),
       status: PermitStatus.values.firstWhere(
         (e) => e.name.toUpperCase() == json['status'],
-        orElse: () => PermitStatus.pending,
+        orElse: () => PermitStatus.active,
       ),
-      originLocationId: json['origin_location_id'],
+      mineId: json['mine_id'],
+      hardwareId: json['hardware_id'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'permit_id': id,
       'permit_code': permitCode,
-      'truck_number': truckNumber,
-      'volume_cubes': volumeCubes,
-      'transport_date': transportDate.toIso8601String(),
-      'expiration_date': expirationDate.toIso8601String(),
+      'truck_number_plate': truckNumberPlate,
+      'no_of_cubes': noOfCubes,
+      // Using substring to send only the Date part (YYYY-MM-DD) for SQL DATE type
+      'started_date': startedDate.toIso8601String().substring(0, 10),
+      'expiry_date': expiryDate.toIso8601String().substring(0, 10),
       'status': status.name.toUpperCase(),
+      if (mineId != null) 'mine_id': mineId,
+      if (hardwareId != null) 'hardware_id': hardwareId,
     };
   }
 }
@@ -92,13 +98,25 @@ class TransportPermit {
 class AppUser {
   final String id;
   final String name;
-  final bool isMineOwner;
-  final bool isHardwareOwner;
+  final String nic;
+  final String email;
+  final String? profilePicture;
 
   AppUser({
     required this.id,
     required this.name,
-    this.isMineOwner = false,
-    this.isHardwareOwner = false,
+    required this.nic,
+    required this.email,
+    this.profilePicture,
   });
+
+  factory AppUser.fromJson(Map<String, dynamic> json) {
+    return AppUser(
+      id: json['user_id'].toString(),
+      name: json['name'],
+      nic: json['nic'],
+      email: json['email'],
+      profilePicture: json['profile_picture'],
+    );
+  }
 }
