@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import {
@@ -33,7 +33,13 @@ import {
   User,
   ListFilter,
   Sun,
-  Moon
+  Moon,
+  X,
+  Users,
+  ChevronLeft,
+  Eye,
+  Copy,
+  CheckCheck,
 } from 'lucide-react';
 import MapComponent from './components/MapComponent';
 import { IncidentTrendChart, PermitStatusChart } from './components/Charts';
@@ -79,7 +85,10 @@ const getLocalDateString = (d: Date = new Date()): string => {
 const initialDashboardData = (): DashboardData => ({
   generatedAt: new Date(),
   metrics: [
-    { label: 'Tracked locations', value: 0, note: 'Connecting to live records...' },
+    { label: 'Registered Users', value: 0, note: 'Connecting to accounts...' },
+    { label: 'Active Mines', value: 0, note: 'Loading extraction sites...' },
+    { label: 'Hardware Stores', value: 0, note: 'Loading depot registries...' },
+    { label: 'Logistics Trucks', value: 0, note: 'Loading vehicle fleet...' },
     { label: 'Open overloads', value: 0, note: 'Analyzing permit loads...' },
     { label: 'Fraud flags', value: 0, note: 'Scanning for active anomalies...' },
     { label: 'Active permits', value: 0, note: 'Calculating active permit volume...' },
@@ -108,8 +117,68 @@ const generateUUID = () => {
     return v.toString(16);
   });
 };
+// ── Standalone Map Component — must be defined OUTSIDE App so React never re-creates
+//    its component type between renders (which causes Leaflet to glitch).
+interface PopupMapProps {
+  lat: number;
+  lng: number;
+  label: string;
+  theme: 'dark' | 'light';
+}
+function PopupMap({ lat, lng, label, theme }: PopupMapProps) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const mapRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    const L = (window as any).L;
+    if (!L || !containerRef.current) return;
+
+    // Safety check to avoid duplicate map instances
+    if (mapRef.current) {
+      try { mapRef.current.remove(); } catch (_) { }
+      mapRef.current = null;
+    }
+
+    const map = L.map(containerRef.current, {
+      scrollWheelZoom: true,
+      touchZoom: true,
+      doubleClickZoom: true,
+      zoomControl: true,
+      dragging: true,
+      tap: true,
+    }).setView([lat, lng], 14);
+    mapRef.current = map;
+
+    L.tileLayer(
+      theme === 'light'
+        ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      { maxZoom: 19, attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>' }
+    ).addTo(map);
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:20px;height:20px;background:#6366f1;border-radius:50%;border:3px solid white;box-shadow:0 3px 12px rgba(99,102,241,0.45);"></div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+    });
+
+    L.marker([lat, lng], { icon }).addTo(map).bindPopup(`<strong>${label}</strong><br/>${lat.toFixed(5)}, ${lng.toFixed(5)}`).openPopup();
+
+    return () => {
+      if (mapRef.current) {
+        try { mapRef.current.remove(); } catch (_) { }
+        mapRef.current = null;
+      }
+    };
+  }, [lat, lng, theme]);
+
+  return <div ref={containerRef} className="w-full h-full min-h-[300px] md:min-h-[400px]" />;
+}
+
 
 export default function App() {
+
   // Dark / Light Theme state
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('gsmb-theme');
@@ -281,8 +350,16 @@ export default function App() {
   };
 
   // Page routing state
-  const [activePage, setActivePage] = useState<'dashboard' | 'registry' | 'new-register' | 'about' | 'contact'>('dashboard');
+  const [activePage, setActivePage] = useState<'dashboard' | 'registry' | 'new-register' | 'about' | 'contact' | 'data-explorer'>(() => {
+    const saved = localStorage.getItem('gsmb_active_page');
+    const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer'];
+    return (validPages.includes(saved || '') ? saved : 'dashboard') as any;
+  });
   const [registerTab, setRegisterTab] = useState<'site' | 'user'>('site');
+
+  useEffect(() => {
+    localStorage.setItem('gsmb_active_page', activePage);
+  }, [activePage]);
 
   // Scroll to top on page transition to avoid glitchy jumping layout shifts
   useEffect(() => {
@@ -330,6 +407,50 @@ export default function App() {
   useEffect(() => {
     setLocationsCurrentPage(1);
   }, [activeTypeTab, generalSearch, minesSearch, hardwareSearch, selectedRegion, selectedRisk]);
+
+  // ── Data Explorer State ──────────────────────────────────────────
+  const [explorerTab, setExplorerTab] = useState<'users' | 'mines' | 'hardwares' | 'trucks'>('users');
+  const [explorerSearch, setExplorerSearch] = useState<string>('');
+  const [explorerPage, setExplorerPage] = useState<number>(1);
+  const EXPLORER_PAGE_SIZE = 20;
+
+  // Raw data for the explorer (trucks not yet fetched in main loadData)
+  const [rawTrucks, setRawTrucks] = useState<any[]>([]);
+  const [rawMinesData, setRawMinesData] = useState<any[]>([]);
+  const [rawHardwaresData, setRawHardwaresData] = useState<any[]>([]);
+
+  // Popup state
+  const [popupItem, setPopupItem] = useState<any>(null);
+  const [popupType, setPopupType] = useState<'user' | 'mine' | 'hardware' | 'truck' | null>(null);
+  // User popup sub-tab
+  const [userPopupTab, setUserPopupTab] = useState<'mines' | 'hardwares' | 'trucks'>('mines');
+  // Sub-item popup (mine/hardware/truck inside user popup)
+  const [subPopupItem, setSubPopupItem] = useState<any>(null);
+  const [subPopupType, setSubPopupType] = useState<'mine' | 'hardware' | 'truck' | null>(null);
+  const [mapPopup, setMapPopup] = useState<{ lat: number; lng: number; label: string } | null>(null);
+
+  // Reset explorer page when tab or search changes
+  useEffect(() => {
+    setExplorerPage(1);
+  }, [explorerTab, explorerSearch]);
+
+  // Popup sub-search (for user popup subtables)
+  const [popupSubSearch, setPopupSubSearch] = useState<string>('');
+  // Copy feedback
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const handleCopyId = (id: string) => {
+    navigator.clipboard.writeText(id).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1800);
+    });
+  };
+
+  // Helper: get owner name from dbUsers by user_id
+  const getUserNameById = (userId: string | null | undefined): string => {
+    if (!userId) return 'N/A';
+    const u = dbUsers.find(u => u.user_id === userId || u.id === userId);
+    return u ? (u.name || u.full_name || 'Unknown') : 'Unknown';
+  };
 
   // Registry logs search states
   const [registrySearchQuery, setRegistrySearchQuery] = useState<string>('');
@@ -559,9 +680,24 @@ export default function App() {
 
     const metrics = [
       {
-        label: 'Tracked locations',
-        value: records.length,
-        note: `Live monitored centers`,
+        label: 'Registered Users',
+        value: dbUsers.length,
+        note: 'Active regulatory accounts',
+      },
+      {
+        label: 'Active Mines',
+        value: rawMinesData.length,
+        note: 'Monitored extraction sites',
+      },
+      {
+        label: 'Hardware Stores',
+        value: rawHardwaresData.length,
+        note: 'Registered distribution depots',
+      },
+      {
+        label: 'Logistics Trucks',
+        value: rawTrucks.length,
+        note: 'Tracked logistics vehicles',
       },
       {
         label: 'Open overloads',
@@ -600,41 +736,29 @@ export default function App() {
 
   const handleMetricClick = (index: number) => {
     if (index === 0) {
-      // Tracked locations: scroll to targeted registries
-      setSelectedRisk('all');
-      setActiveTypeTab('all');
-      setGeneralSearch('');
-      if (activePage !== 'dashboard') {
-        setActivePage('dashboard');
-        setTimeout(() => {
-          document.getElementById('targeted-registries')?.scrollIntoView({ behavior: 'smooth' });
-        }, 150);
-      } else {
-        document.getElementById('targeted-registries')?.scrollIntoView({ behavior: 'smooth' });
-      }
+      setExplorerTab('users');
+      setActivePage('data-explorer');
     } else if (index === 1) {
-      // Open overloads: show overloaded locations
+      setExplorerTab('mines');
+      setActivePage('data-explorer');
+    } else if (index === 2) {
+      setExplorerTab('hardwares');
+      setActivePage('data-explorer');
+    } else if (index === 3) {
+      setExplorerTab('trucks');
+      setActivePage('data-explorer');
+    } else if (index === 4) {
       setSelectedRisk('high');
       setActiveTypeTab('all');
       setGeneralSearch('');
-      if (activePage !== 'dashboard') {
-        setActivePage('dashboard');
-        setTimeout(() => {
-          document.getElementById('targeted-registries')?.scrollIntoView({ behavior: 'smooth' });
-        }, 150);
-      } else {
-        document.getElementById('targeted-registries')?.scrollIntoView({ behavior: 'smooth' });
-      }
-    } else if (index === 2) {
-      // Fraud flags: go to permit list tab
+    } else if (index === 5) {
       setActivePage('registry');
       setRegistryStatusFilter('all');
       setRegistrySearchQuery('CANCELLED');
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 100);
-    } else if (index === 3) {
-      // Active permits: go to Permit List page
+    } else if (index === 6) {
       setActivePage('registry');
       setRegistryStatusFilter('ACTIVE');
       setRegistrySearchQuery('');
@@ -658,6 +782,19 @@ export default function App() {
         fetchSupabase('mine_permits?select=permit_id,permit_code,truck_number_plate,no_of_cubes,started_date,expiry_date,status,mine_id,mine_unloads(unloaded_latitude,unloaded_longitude,unloaded_date,unloaded_time)'),
         fetchSupabase('hardware_permits?select=permit_id,permit_code,truck_number_plate,no_of_cubes,started_date,expiry_date,status,hardware_id,hardware_unloads(unloaded_latitude,unloaded_longitude,unloaded_date,unloaded_time)'),
       ]);
+
+      // Store raw mines/hardwares for data explorer
+      setRawMinesData(rawMines as any[]);
+      setRawHardwaresData(rawHardwares as any[]);
+
+      // Fetch trucks for data explorer
+      let fetchedTrucks: any[] = [];
+      try {
+        fetchedTrucks = await fetchSupabase('trucks?select=*');
+      } catch (err) {
+        console.error('Failed to fetch trucks:', err);
+      }
+      setRawTrucks(fetchedTrucks);
 
       let fetchedUsers: any[] = [];
       try {
@@ -789,10 +926,8 @@ export default function App() {
       const dashboardPayload = buildDashboardData(enrichedLocations, processedPermits);
       setData(dashboardPayload);
 
-      // Auto-select first record if none chosen
-      if (dashboardPayload.records.length > 0) {
-        setActiveRecordId(dashboardPayload.records[0].id);
-      }
+      // Start with no specific active record selected so map displays whole country
+      setActiveRecordId(null);
     } catch (err: any) {
       console.error('Error fetching oversight data:', err);
       setError(err.message || 'Oversight database connections failed.');
@@ -1447,49 +1582,79 @@ export default function App() {
           {data.metrics.map((metric, i) => {
             const boxStyle = [
               {
-                // Tracked locations (Indigo)
+                // Registered Users (Indigo Gradient)
                 classes: theme === 'light'
-                  ? 'bg-indigo-50/70 border-indigo-200/80 hover:border-indigo-400/80 text-indigo-950 shadow-md'
-                  : 'bg-indigo-950/20 border-indigo-500/20 hover:border-indigo-500/40 text-white shadow-xl',
-                iconClass: theme === 'light' ? 'text-indigo-500' : 'text-indigo-400',
-                labelClass: theme === 'light' ? 'text-indigo-700/80 font-black' : 'text-indigo-400 font-extrabold',
-                valueClass: theme === 'light' ? 'text-indigo-900 font-black' : 'text-white font-black',
-                noteClass: theme === 'light' ? 'text-indigo-800/80 font-medium' : 'text-indigo-300/80 font-medium',
+                  ? 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white border-indigo-600 hover:shadow-lg hover:shadow-indigo-500/20'
+                  : 'bg-gradient-to-br from-indigo-950/80 to-indigo-900/40 border-indigo-500/30 text-white shadow-xl shadow-indigo-950/20',
+                iconClass: theme === 'light' ? 'text-white' : 'text-indigo-400',
+                labelClass: theme === 'light' ? 'text-indigo-100 font-extrabold' : 'text-indigo-300 font-extrabold',
+                valueClass: 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-indigo-100/80 font-medium' : 'text-indigo-400/80 font-medium',
               },
               {
-                // Open overloads (Rose)
+                // Active Mines (Emerald Gradient)
                 classes: theme === 'light'
-                  ? 'bg-rose-50/70 border-rose-200/80 hover:border-rose-400/80 text-rose-950 shadow-md'
-                  : 'bg-rose-950/20 border-rose-500/20 hover:border-rose-500/40 text-white shadow-xl',
-                iconClass: theme === 'light' ? 'text-rose-500' : 'text-rose-400',
-                labelClass: theme === 'light' ? 'text-rose-700/80 font-black' : 'text-rose-400 font-extrabold',
-                valueClass: theme === 'light' ? 'text-rose-900 font-black' : 'text-white font-black',
-                noteClass: theme === 'light' ? 'text-rose-800/80 font-medium' : 'text-rose-300/80 font-medium',
+                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-emerald-600 hover:shadow-lg hover:shadow-emerald-500/20'
+                  : 'bg-gradient-to-br from-emerald-950/80 to-emerald-900/40 border-emerald-500/30 text-white shadow-xl shadow-emerald-950/20',
+                iconClass: theme === 'light' ? 'text-white' : 'text-emerald-400',
+                labelClass: theme === 'light' ? 'text-emerald-100 font-extrabold' : 'text-emerald-300 font-extrabold',
+                valueClass: 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-emerald-100/80 font-medium' : 'text-emerald-400/80 font-medium',
               },
               {
-                // Fraud flags (Amber)
+                // Hardware Stores (Sky Gradient)
                 classes: theme === 'light'
-                  ? 'bg-amber-50/70 border-amber-200/80 hover:border-amber-400/80 text-amber-950 shadow-md'
-                  : 'bg-amber-950/20 border-amber-500/20 hover:border-amber-500/40 text-white shadow-xl',
-                iconClass: theme === 'light' ? 'text-amber-500' : 'text-amber-400',
-                labelClass: theme === 'light' ? 'text-amber-700/80 font-black' : 'text-amber-400 font-extrabold',
-                valueClass: theme === 'light' ? 'text-amber-900 font-black' : 'text-white font-black',
-                noteClass: theme === 'light' ? 'text-amber-800/80 font-medium' : 'text-amber-300/80 font-medium',
+                  ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-600 hover:shadow-lg hover:shadow-sky-500/20'
+                  : 'bg-gradient-to-br from-sky-950/80 to-blue-950/40 border-sky-500/30 text-white shadow-xl shadow-sky-950/20',
+                iconClass: theme === 'light' ? 'text-white' : 'text-sky-400',
+                labelClass: theme === 'light' ? 'text-sky-100 font-extrabold' : 'text-sky-300 font-extrabold',
+                valueClass: 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-sky-100/80 font-medium' : 'text-sky-400/80 font-medium',
               },
               {
-                // Active permits (Emerald)
+                // Logistics Trucks (Amber Gradient)
                 classes: theme === 'light'
-                  ? 'bg-emerald-50/70 border-emerald-200/80 hover:border-emerald-400/80 text-emerald-950 shadow-md'
-                  : 'bg-emerald-950/20 border-emerald-500/20 hover:border-emerald-500/40 text-white shadow-xl',
-                iconClass: theme === 'light' ? 'text-emerald-500' : 'text-emerald-400',
-                labelClass: theme === 'light' ? 'text-emerald-700/80 font-black' : 'text-emerald-400 font-extrabold',
-                valueClass: theme === 'light' ? 'text-emerald-900 font-black' : 'text-white font-black',
-                noteClass: theme === 'light' ? 'text-emerald-800/80 font-medium' : 'text-emerald-300/80 font-medium',
+                  ? 'bg-gradient-to-br from-amber-500 to-amber-700 text-white border-amber-600 hover:shadow-lg hover:shadow-amber-500/20'
+                  : 'bg-gradient-to-br from-amber-950/80 to-amber-900/40 border-amber-500/30 text-white shadow-xl shadow-amber-950/20',
+                iconClass: theme === 'light' ? 'text-white' : 'text-amber-400',
+                labelClass: theme === 'light' ? 'text-amber-100 font-extrabold' : 'text-amber-300 font-extrabold',
+                valueClass: 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-amber-100/80 font-medium' : 'text-amber-400/80 font-medium',
+              },
+              {
+                // Open overloads (Rose Gradient)
+                classes: theme === 'light'
+                  ? 'bg-gradient-to-br from-rose-500 to-red-600 text-white border-rose-600 hover:shadow-lg hover:shadow-rose-500/20'
+                  : 'bg-gradient-to-br from-rose-950/80 to-red-950/40 border-rose-500/30 text-white shadow-xl shadow-rose-950/20',
+                iconClass: theme === 'light' ? 'text-white' : 'text-rose-400',
+                labelClass: theme === 'light' ? 'text-rose-100 font-extrabold' : 'text-rose-300 font-extrabold',
+                valueClass: 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-rose-100/80 font-medium' : 'text-rose-400/80 font-medium',
+              },
+              {
+                // Fraud flags (Purple Gradient)
+                classes: theme === 'light'
+                  ? 'bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white border-purple-600 hover:shadow-lg hover:shadow-purple-500/20'
+                  : 'bg-gradient-to-br from-purple-950/80 to-fuchsia-950/40 border-purple-500/30 text-white shadow-xl shadow-purple-950/20',
+                iconClass: theme === 'light' ? 'text-white' : 'text-purple-400',
+                labelClass: theme === 'light' ? 'text-purple-100 font-extrabold' : 'text-purple-300 font-extrabold',
+                valueClass: 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-purple-100/80 font-medium' : 'text-purple-400/80 font-medium',
+              },
+              {
+                // Active permits (Teal Gradient)
+                classes: theme === 'light'
+                  ? 'bg-gradient-to-br from-teal-500 to-cyan-600 text-white border-teal-600 hover:shadow-lg hover:shadow-teal-500/20'
+                  : 'bg-gradient-to-br from-teal-950/80 to-cyan-950/40 border-teal-500/30 text-white shadow-xl shadow-teal-950/20',
+                iconClass: theme === 'light' ? 'text-white' : 'text-teal-400',
+                labelClass: theme === 'light' ? 'text-teal-100 font-extrabold' : 'text-teal-300 font-extrabold',
+                valueClass: 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-teal-100/80 font-medium' : 'text-teal-400/80 font-medium',
               }
             ][i] || {
-              classes: 'bg-neutral-900 border-neutral-800/80',
-              iconClass: 'text-neutral-300',
-              labelClass: 'text-neutral-500',
+              classes: 'bg-neutral-900 border-neutral-800 text-white',
+              iconClass: 'text-white',
+              labelClass: 'text-neutral-300',
               valueClass: 'text-white',
               noteClass: 'text-neutral-400',
             };
@@ -1501,12 +1666,15 @@ export default function App() {
                 className={`text-left rounded-[28px] p-7 flex flex-col justify-between h-[160px] border relative overflow-hidden group cursor-pointer active:scale-[0.98] modern-grid-card ${boxStyle.classes}`}
               >
                 <div className="absolute right-4 top-4 opacity-15 group-hover:opacity-30 group-hover:scale-110 transition-all duration-300">
-                  {i === 0 && <MapPin className={`w-14 h-14 ${boxStyle.iconClass}`} />}
-                  {i === 1 && <AlertTriangle className={`w-14 h-14 ${boxStyle.iconClass}`} />}
-                  {i === 2 && <ShieldAlert className={`w-14 h-14 ${boxStyle.iconClass}`} />}
+                  {i === 0 && <Users className={`w-14 h-14 ${boxStyle.iconClass}`} />}
+                  {i === 1 && <HardHat className={`w-14 h-14 ${boxStyle.iconClass}`} />}
+                  {i === 2 && <Building2 className={`w-14 h-14 ${boxStyle.iconClass}`} />}
                   {i === 3 && <Truck className={`w-14 h-14 ${boxStyle.iconClass}`} />}
+                  {i === 4 && <AlertTriangle className={`w-14 h-14 ${boxStyle.iconClass}`} />}
+                  {i === 5 && <ShieldAlert className={`w-14 h-14 ${boxStyle.iconClass}`} />}
+                  {i === 6 && <FileText className={`w-14 h-14 ${boxStyle.iconClass}`} />}
                 </div>
-                <span className={`text-[11px] uppercase tracking-wider font-extrabold ${boxStyle.labelClass}`}>{metric.label}</span>
+                <span className={`text-[15px] uppercase tracking-wide font-black drop-shadow-sm ${boxStyle.labelClass}`}>{metric.label}</span>
                 <span className={`text-5xl font-black tracking-tight mt-2 ${boxStyle.valueClass}`}>
                   {loading ? '...' : metric.value}
                 </span>
@@ -1622,507 +1790,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* Bottom Layout: Category options and inspector */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-10">
-
-          {/* Left: Category segmented tables with individual searches */}
-          <article id="targeted-registries" className={`lg:col-span-8 p-8 rounded-[32px] transition-all duration-300 flex flex-col gap-5 overflow-hidden border ${theme === 'light'
-            ? 'bg-white border-neutral-200 shadow-md text-neutral-800'
-            : 'bg-neutral-900 border-neutral-800 shadow-2xl text-white'
-            }`}>
-
-            {/* Pressable segmented options */}
-            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5 transition-all duration-300 ${theme === 'light' ? 'border-neutral-100' : 'border-neutral-800'
-              }`}>
-              <div>
-                <p className="text-[11px] font-extrabold text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Targeted Registries</p>
-                <h2 className={`text-xl font-bold tracking-normal transition-colors duration-300 mt-0.5 ${theme === 'light' ? 'text-neutral-900' : 'text-white'
-                  }`}>Geological & Distribution Nodes</h2>
-              </div>
-
-              <div className={`flex p-1 rounded-2xl border text-xs font-bold transition-all duration-300 ${theme === 'light'
-                ? 'bg-neutral-100 border-neutral-200 text-neutral-600'
-                : 'bg-neutral-950 border-neutral-800 text-neutral-400'
-                }`}>
-                <button
-                  onClick={() => setActiveTypeTab('all')}
-                  className={`px-4.5 py-2 rounded-xl transition-all cursor-pointer ${activeTypeTab === 'all'
-                    ? 'bg-indigo-600 text-white font-extrabold shadow-sm shadow-indigo-600/15'
-                    : theme === 'light' ? 'hover:text-neutral-900' : 'hover:text-white'
-                    }`}
-                >
-                  All Sites
-                </button>
-                <button
-                  onClick={() => setActiveTypeTab('mine')}
-                  className={`px-4.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${activeTypeTab === 'mine'
-                    ? 'bg-indigo-600 text-white font-extrabold shadow-sm shadow-indigo-600/15'
-                    : theme === 'light' ? 'hover:text-neutral-900' : 'hover:text-white'
-                    }`}
-                >
-                  <HardHat className="w-3.5 h-3.5" />
-                  Mines
-                </button>
-                <button
-                  onClick={() => setActiveTypeTab('hardware')}
-                  className={`px-4.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${activeTypeTab === 'hardware'
-                    ? 'bg-indigo-600 text-white font-extrabold shadow-sm shadow-indigo-600/15'
-                    : theme === 'light' ? 'hover:text-neutral-900' : 'hover:text-white'
-                    }`}
-                >
-                  <Building2 className="w-3.5 h-3.5" />
-                  Hardwares
-                </button>
-              </div>
-            </div>
-
-            {/* Independent search inputs for each tab */}
-            <div className={`p-4 rounded-2xl border transition-all duration-300 ${theme === 'light'
-              ? 'bg-neutral-50 border-neutral-100'
-              : 'bg-neutral-950/60 border-neutral-800/50'
-              }`}>
-              {activeTypeTab === 'all' && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest">Search All Registries</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                    <input
-                      type="text"
-                      placeholder="Type Name, District, License, Permit, or Truck No..."
-                      value={generalSearch}
-                      onChange={(e) => setGeneralSearch(e.target.value)}
-                      className={`w-full border rounded-xl py-2 px-9 text-xs transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 ${theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 placeholder-neutral-400'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 placeholder-neutral-600'
-                        }`}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {activeTypeTab === 'mine' && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-black text-emerald-500 dark:text-emerald-400 uppercase tracking-widest">Mines & Sand Quarry Filter</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500/60" />
-                    <input
-                      type="text"
-                      placeholder="Search mine by location ID, License No, District, or operator name..."
-                      value={minesSearch}
-                      onChange={(e) => setMinesSearch(e.target.value)}
-                      className={`w-full border rounded-xl py-2 px-9 text-xs transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 ${theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 placeholder-neutral-400'
-                        : 'bg-neutral-950 border-emerald-950/40 text-neutral-200 placeholder-neutral-600'
-                        }`}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {activeTypeTab === 'hardware' && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Hardware Outlets Search</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400/60" />
-                    <input
-                      type="text"
-                      placeholder="Search hardware by store ID, distributor code, or license ID..."
-                      value={hardwareSearch}
-                      onChange={(e) => setHardwareSearch(e.target.value)}
-                      className={`w-full border rounded-xl py-2 px-9 text-xs transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 ${theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 placeholder-neutral-400'
-                        : 'bg-neutral-950 border-indigo-950/40 text-neutral-200 placeholder-neutral-600'
-                        }`}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* List of active selection */}
-            <div className={`overflow-x-auto border rounded-2xl transition-all duration-300 ${theme === 'light'
-              ? 'border-neutral-200 bg-white'
-              : 'border-neutral-800 bg-neutral-950'
-              }`}>
-              <table className="w-full text-left border-collapse min-w-[750px]">
-                <thead>
-                  <tr className={`border-b text-xs uppercase tracking-widest font-black transition-all duration-300 ${theme === 'light'
-                    ? 'border-neutral-200 bg-neutral-50 text-neutral-600'
-                    : 'border-neutral-800 bg-neutral-900/30 text-neutral-300'
-                    }`}>
-                    <th className="py-4 px-5 border-r border-neutral-200/40 dark:border-neutral-800/30 last:border-r-0">Administrative Node</th>
-                    <th className="py-4 px-5 border-r border-neutral-200/40 dark:border-neutral-800/30 last:border-r-0">Type / Operator</th>
-                    <th className="py-4 px-5 border-r border-neutral-200/40 dark:border-neutral-800/30 last:border-r-0">District</th>
-                    <th className="py-4 px-5 border-r border-neutral-200/40 dark:border-neutral-800/30 last:border-r-0">Current Stock</th>
-                    <th className="py-4 px-5 border-r border-neutral-200/40 dark:border-neutral-800/30 last:border-r-0">Max Capacity</th>
-                    <th className="py-4 px-5 border-r border-neutral-200/40 dark:border-neutral-800/30 last:border-r-0">Oversight Status</th>
-                    <th className="py-4 px-5 text-center last:border-r-0">Incidents Flagged</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y text-sm transition-colors duration-300 ${theme === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/50'
-                  }`}>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-neutral-400 font-bold text-base animate-pulse">
-                        Connecting to telemetry databases...
-                      </td>
-                    </tr>
-                  ) : filteredRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-neutral-400 font-bold text-base">
-                        No locations found matching filter query in this category.
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedRecords.map((record) => {
-                      const isActive = record.id === activeRecordId;
-                      let rowBgClass = '';
-                      if (isActive) {
-                        rowBgClass = theme === 'light'
-                          ? 'bg-indigo-100/75 hover:bg-indigo-100/85 border-indigo-200/80 text-neutral-950'
-                          : 'bg-indigo-950/40 hover:bg-indigo-950/50 border-indigo-500/20 text-white';
-                      } else if (record.isOverloaded || record.risk === 'high') {
-                        rowBgClass = theme === 'light'
-                          ? 'bg-rose-50/70 hover:bg-rose-100/60 border-rose-100 text-neutral-900'
-                          : 'bg-rose-950/15 hover:bg-rose-950/25 border-rose-900/25 text-white';
-                      } else if (record.risk === 'medium') {
-                        rowBgClass = theme === 'light'
-                          ? 'bg-amber-50/70 hover:bg-amber-100/60 border-amber-100 text-neutral-900'
-                          : 'bg-amber-950/15 hover:bg-amber-950/25 border-amber-900/25 text-white';
-                      } else {
-                        rowBgClass = theme === 'light'
-                          ? 'bg-emerald-50/50 hover:bg-emerald-100/50 border-emerald-100/50 text-neutral-900'
-                          : 'bg-emerald-950/10 hover:bg-emerald-950/20 border-emerald-900/15 text-white';
-                      }
-
-                      return (
-                        <tr
-                          key={record.id}
-                          onClick={() => {
-                            setActiveRecordId(record.id);
-                          }}
-                          className={`cursor-pointer transition-all duration-300 border-b last:border-b-0 ${rowBgClass}`}
-                        >
-                          <td className={`py-4 px-5 border-r last:border-r-0 ${theme === 'light' ? 'border-neutral-100 text-neutral-800' : 'border-neutral-800/40 text-white'
-                            }`}>
-                            <div className="font-extrabold text-base whitespace-normal break-words max-w-xs">{record.name}</div>
-                            <div className="font-mono text-xs text-neutral-400 mt-1 uppercase tracking-wider">{record.id}</div>
-                          </td>
-                          <td className={`py-4 px-5 border-r last:border-r-0 ${theme === 'light' ? 'border-neutral-100' : 'border-neutral-800/40'
-                            }`}>
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-black uppercase border ${record.type === 'Mine'
-                              ? theme === 'light'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                              : theme === 'light'
-                                ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
-                                : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
-                              }`}>
-                              {record.type === 'Mine' ? <HardHat className="w-3.5 h-3.5 animate-pulse text-emerald-600 dark:text-emerald-400" /> : <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
-                              {record.type}
-                            </span>
-                          </td>
-                          <td className={`py-4 px-5 text-sm border-r last:border-r-0 ${theme === 'light' ? 'border-neutral-100 text-neutral-600' : 'border-neutral-800/40 text-neutral-200'
-                            }`}>
-                            {record.region}
-                          </td>
-                          <td className={`py-4 px-5 font-mono text-sm border-r last:border-r-0 ${theme === 'light' ? 'border-neutral-100' : 'border-neutral-800/40'
-                            }`}>
-                            <div className="flex flex-col gap-1">
-                              <div className={record.isOverloaded ? 'text-rose-600 dark:text-rose-400 font-extrabold' : theme === 'light' ? 'text-neutral-900 font-bold' : 'text-neutral-100'}>
-                                <span className="font-extrabold text-base">{record.inventory}</span> m³
-                              </div>
-                              {record.isOverloaded && (
-                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] border w-max font-black uppercase tracking-wider ${theme === 'light'
-                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                  : 'bg-rose-500/15 text-rose-300 border-rose-500/20'
-                                  }`}>
-                                  <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400 shrink-0" />
-                                  EXCEEDS LIMIT
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className={`py-4 px-5 font-mono text-sm border-r last:border-r-0 ${theme === 'light' ? 'border-neutral-100' : 'border-neutral-800/40'
-                            }`}>
-                            <span className="font-bold text-base">{record.maxCapacity}</span> m³
-                          </td>
-                          <td className={`py-4 px-5 border-r last:border-r-0 ${theme === 'light' ? 'border-neutral-100' : 'border-neutral-800/40'
-                            }`}>
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase border ${record.isOverloaded
-                              ? theme === 'light'
-                                ? 'bg-rose-50 text-rose-800 border-rose-200'
-                                : 'bg-rose-600/20 text-rose-300 border-rose-500/30'
-                              : record.risk === 'high'
-                                ? theme === 'light'
-                                  ? 'bg-rose-50 text-rose-800 border-rose-200'
-                                  : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
-                                : record.risk === 'medium'
-                                  ? theme === 'light'
-                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                    : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                                  : theme === 'light'
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                    : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                              }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${record.isOverloaded
-                                ? theme === 'light' ? 'bg-rose-600' : 'bg-rose-400'
-                                : record.risk === 'high'
-                                  ? theme === 'light' ? 'bg-rose-600' : 'bg-rose-500'
-                                  : record.risk === 'medium'
-                                    ? theme === 'light' ? 'bg-amber-600' : 'bg-amber-500'
-                                    : theme === 'light' ? 'bg-emerald-600' : 'bg-emerald-500'
-                                }`}></span>
-                              {record.isOverloaded ? 'Overloaded' : record.risk}
-                            </span>
-                          </td>
-                          <td className={`py-4 px-5 text-center font-black text-base ${theme === 'light' ? 'text-rose-700' : 'text-rose-400'
-                            }`}>
-                            {record.incidents}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t transition-all duration-300 ${theme === 'light' ? 'border-neutral-100 text-neutral-600' : 'border-neutral-800/60 text-neutral-400'
-                }`}>
-                <div className="text-xs font-bold font-mono tracking-wider">
-                  Showing <span className={theme === 'light' ? 'text-neutral-900 font-extrabold' : 'text-white font-extrabold'}>
-                    {Math.min(filteredRecords.length, (locationsCurrentPage - 1) * 5 + 1)}
-                  </span> to <span className={theme === 'light' ? 'text-neutral-900 font-extrabold' : 'text-white font-extrabold'}>
-                    {Math.min(filteredRecords.length, locationsCurrentPage * 5)}
-                  </span> of <span className={theme === 'light' ? 'text-neutral-900 font-extrabold' : 'text-white font-extrabold'}>
-                    {filteredRecords.length}
-                  </span> nodes
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setLocationsCurrentPage((prev) => Math.max(1, prev - 1))}
-                    disabled={locationsCurrentPage === 1}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1 ${locationsCurrentPage === 1
-                      ? 'opacity-40 cursor-not-allowed border border-transparent'
-                      : theme === 'light'
-                        ? 'border border-neutral-200 bg-white hover:bg-neutral-100 hover:text-indigo-600 text-neutral-700 shadow-sm cursor-pointer'
-                        : 'border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800 hover:text-indigo-400 text-neutral-300 shadow-md cursor-pointer'
-                      }`}
-                  >
-                    Previous
-                  </button>
-
-                  {/* Page Numbers */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((page) => {
-                      return (
-                        page === 1 ||
-                        page === totalPages ||
-                        Math.abs(page - locationsCurrentPage) <= 1
-                      );
-                    })
-                    .map((page, index, array) => {
-                      const isActive = page === locationsCurrentPage;
-                      const showEllipsis = index > 0 && page - array[index - 1] > 1;
-
-                      return (
-                        <React.Fragment key={page}>
-                          {showEllipsis && (
-                            <span className="px-1 text-xs text-neutral-500 font-bold select-none">...</span>
-                          )}
-                          <button
-                            onClick={() => setLocationsCurrentPage(page)}
-                            className={`w-8 h-8 rounded-xl text-xs font-black transition-all duration-200 cursor-pointer flex items-center justify-center ${isActive
-                              ? 'bg-indigo-600 text-white font-extrabold shadow-md shadow-indigo-600/25 scale-105'
-                              : theme === 'light'
-                                ? 'border border-neutral-200 bg-white hover:bg-neutral-100 hover:text-indigo-600 text-neutral-600'
-                                : 'border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800 hover:text-indigo-400 text-neutral-400 hover:text-white'
-                              }`}
-                          >
-                            {page}
-                          </button>
-                        </React.Fragment>
-                      );
-                    })}
-
-                  <button
-                    onClick={() => setLocationsCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={locationsCurrentPage === totalPages}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1 ${locationsCurrentPage === totalPages
-                      ? 'opacity-40 cursor-not-allowed border border-transparent'
-                      : theme === 'light'
-                        ? 'border border-neutral-200 bg-white hover:bg-neutral-100 hover:text-indigo-600 text-neutral-700 shadow-sm cursor-pointer'
-                        : 'border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800 hover:text-indigo-400 text-neutral-300 shadow-md cursor-pointer'
-                      }`}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </article>
-
-          {/* Right: Selected Location Profile Details Bento Box */}
-          <article className={`lg:col-span-4 border p-6 rounded-3xl shadow-2xl flex flex-col gap-6 transition-all duration-300 ${theme === 'light'
-            ? 'bg-white border-neutral-200'
-            : 'bg-neutral-900 border-neutral-800'
-            }`}>
-            <div>
-              <p className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Node Inspector</p>
-              <h2 className={`text-xl font-bold tracking-normal transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'
-                }`}>Active Profile</h2>
-            </div>
-
-            {activeRecord ? (
-              <div className="flex flex-col gap-6 animate-fadeIn">
-
-                {/* Visual Header card */}
-                <div className={`border p-5 rounded-2xl flex flex-col gap-3 relative overflow-hidden transition-all duration-300 ${theme === 'light'
-                  ? 'bg-neutral-50/80 border-neutral-200'
-                  : 'bg-neutral-950 border-neutral-800'
-                  }`}>
-                  <div className="absolute right-[-15px] bottom-[-15px] opacity-5">
-                    <Activity className="w-24 h-24 text-indigo-400" />
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-md uppercase tracking-wider">
-                      {activeRecord.type} Registry ID
-                    </span>
-                    <h3 className={`text-lg font-black mt-3 leading-snug whitespace-normal break-words transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'
-                      }`}>
-                      {activeRecord.name}
-                    </h3>
-
-                    {/* Dynamic Owner Name & NIC Section */}
-                    {(() => {
-                      const ownerInfo = getRecordOwnerInfo(activeRecord);
-                      return (
-                        <div className="text-xs flex flex-col gap-1 text-neutral-500 dark:text-neutral-400 font-semibold mt-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[9px] uppercase font-black tracking-wider text-indigo-600 dark:text-indigo-400">Owner Name:</span>
-                            <span className={theme === 'light' ? 'text-neutral-800' : 'text-white'}>{ownerInfo.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[9px] uppercase font-black tracking-wider text-indigo-600 dark:text-indigo-400">Owner NIC:</span>
-                            <span className={theme === 'light' ? 'text-neutral-800' : 'text-white'}>{ownerInfo.nic}</span>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    <p className={`text-xs mt-2.5 flex items-center gap-1.5 transition-colors duration-300 ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'
-                      }`}>
-                      <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                      {activeRecord.region}
-                    </p>
-                  </div>
-                  {activeRecord.status && (
-                    <div className={`text-xs p-3 rounded-xl whitespace-normal break-words leading-relaxed border transition-all duration-300 ${theme === 'light'
-                      ? 'bg-white border-neutral-200 text-neutral-600'
-                      : 'bg-neutral-900/90 border-neutral-800 text-neutral-300'
-                      }`}>
-                      {activeRecord.status}
-                    </div>
-                  )}
-                  <div className="flex">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase border transition-all duration-300 ${activeRecord.risk === 'high'
-                      ? theme === 'light'
-                        ? 'bg-rose-50 text-rose-800 border-rose-200'
-                        : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
-                      : activeRecord.risk === 'medium'
-                        ? theme === 'light'
-                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                          : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                        : theme === 'light'
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                      }`}>
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      {activeRecord.risk} risk profile
-                    </span>
-                  </div>
-                </div>
-
-                {/* Micro Stats boxes */}
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className={`border p-4 rounded-xl flex flex-col justify-between transition-all duration-300 ${theme === 'light' ? 'bg-neutral-50/80 border-neutral-200' : 'bg-neutral-950 border-neutral-800'
-                    }`}>
-                    <span className="text-neutral-500 font-bold text-[9px] uppercase tracking-wider flex items-center gap-1">
-                      <Boxes className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-600" /> Stock Level
-                    </span>
-                    <strong className={`text-base font-black mt-2 transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'
-                      }`}>{activeRecord.inventory.toLocaleString()} m³</strong>
-                  </div>
-                  <div className={`border p-4 rounded-xl flex flex-col justify-between transition-all duration-300 ${theme === 'light' ? 'bg-neutral-50/80 border-neutral-200' : 'bg-neutral-950 border-neutral-800'
-                    }`}>
-                    <span className="text-neutral-500 font-bold text-[9px] uppercase tracking-wider flex items-center gap-1">
-                      <ShieldAlert className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-600" /> Warnings
-                    </span>
-                    <strong className="text-base font-black text-rose-600 dark:text-rose-400 mt-2">{activeRecord.incidents} FLAGGED</strong>
-                  </div>
-                  <div className={`border p-4 rounded-xl flex flex-col justify-between transition-all duration-300 ${theme === 'light' ? 'bg-neutral-50/80 border-neutral-200' : 'bg-neutral-950 border-neutral-800'
-                    }`}>
-                    <span className="text-neutral-500 font-bold text-[9px] uppercase tracking-wider flex items-center gap-1">
-                      <FileText className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-600" /> Active Permit
-                    </span>
-                    <strong className={`text-[10px] font-mono font-bold mt-2 truncate block transition-colors duration-300 ${theme === 'light' ? 'text-neutral-700' : 'text-neutral-200'
-                      }`}>
-                      {activeRecord.permit}
-                    </strong>
-                  </div>
-                  <div className={`border p-4 rounded-xl flex flex-col justify-between transition-all duration-300 ${theme === 'light' ? 'bg-neutral-50/80 border-neutral-200' : 'bg-neutral-950 border-neutral-800'
-                    }`}>
-                    <span className="text-neutral-500 font-bold text-[9px] uppercase tracking-wider flex items-center gap-1">
-                      <Truck className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-600" /> Transit Truck
-                    </span>
-                    <strong className={`text-xs font-mono font-bold mt-2 truncate block transition-colors duration-300 ${theme === 'light' ? 'text-neutral-700' : 'text-neutral-200'
-                      }`}>
-                      {activeRecord.truck}
-                    </strong>
-                  </div>
-                </div>
-
-                {/* Activity timeline logs */}
-                <div className="flex flex-col gap-3">
-                  <h4 className="text-[10px] font-black text-neutral-500 tracking-wider uppercase">
-                    Compliance Checklist
-                  </h4>
-                  <div className="flex flex-col gap-2.5">
-                    {activeRecord.timeline.map((item, index) => (
-                      <div
-                        key={index}
-                        className={`border p-3.5 rounded-xl flex justify-between items-center text-xs transition-all duration-300 ${theme === 'light' ? 'bg-neutral-50/80 border-neutral-200' : 'bg-neutral-950 border-neutral-800'
-                          }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <ChevronRight className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-600" />
-                          <span className={`font-semibold transition-colors duration-300 ${theme === 'light' ? 'text-neutral-700' : 'text-neutral-300'
-                            }`}>{item.label}</span>
-                        </div>
-                        <span className={`font-mono font-extrabold text-[10px] border px-2 py-0.5 rounded transition-all duration-300 ${theme === 'light'
-                          ? 'bg-white border-neutral-200 text-neutral-800'
-                          : 'bg-neutral-900 border-neutral-800 text-white'
-                          }`}>
-                          {item.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-            ) : (
-              <div className={`flex flex-col items-center justify-center py-12 border border-dashed rounded-2xl transition-all duration-300 ${theme === 'light' ? 'border-neutral-300 bg-neutral-50/50' : 'border-neutral-800 bg-neutral-950/20'
-                }`}>
-                <p className="text-neutral-500 text-sm font-medium">Please select a mine or hardware node to inspect.</p>
-              </div>
-            )}
-          </article>
-        </section>
       </div>
     );
   };
@@ -2325,6 +1992,942 @@ export default function App() {
       </div>
     );
   };
+
+  // ── Pagination helper component ──────────────────────────────────
+  const renderPagination = (currentPage: number, totalPg: number, totalItems: number, pageSize: number, onPrev: () => void, onNext: () => void, onPage: (p: number) => void) => {
+    if (totalPg <= 1) return null;
+    const start = Math.min(totalItems, (currentPage - 1) * pageSize + 1);
+    const end = Math.min(totalItems, currentPage * pageSize);
+    return (
+      <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t transition-all duration-300 ${theme === 'light' ? 'border-neutral-100 text-neutral-600' : 'border-neutral-800/60 text-neutral-400'}`}>
+        <div className="text-xs font-bold font-mono tracking-wider">
+          Showing <span className={theme === 'light' ? 'text-neutral-900 font-extrabold' : 'text-white font-extrabold'}>{start}</span> to <span className={theme === 'light' ? 'text-neutral-900 font-extrabold' : 'text-white font-extrabold'}>{end}</span> of <span className={theme === 'light' ? 'text-neutral-900 font-extrabold' : 'text-white font-extrabold'}>{totalItems}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button onClick={onPrev} disabled={currentPage === 1} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1 ${currentPage === 1 ? 'opacity-40 cursor-not-allowed border border-transparent' : theme === 'light' ? 'border border-neutral-200 bg-white hover:bg-neutral-100 hover:text-indigo-600 text-neutral-700 shadow-sm cursor-pointer' : 'border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800 hover:text-indigo-400 text-neutral-300 shadow-md cursor-pointer'}`}>
+            <ChevronLeft className="w-3.5 h-3.5" /> Previous
+          </button>
+          {Array.from({ length: totalPg }, (_, i) => i + 1).filter(p => p === 1 || p === totalPg || Math.abs(p - currentPage) <= 1).map((page, index, arr) => {
+            const isActive = page === currentPage;
+            const showEllipsis = index > 0 && page - arr[index - 1] > 1;
+            return (
+              <React.Fragment key={page}>
+                {showEllipsis && <span className="px-1 text-xs text-neutral-500 font-bold select-none">...</span>}
+                <button onClick={() => onPage(page)} className={`w-8 h-8 rounded-xl text-xs font-black transition-all duration-200 cursor-pointer flex items-center justify-center ${isActive ? 'bg-indigo-600 text-white font-extrabold shadow-md shadow-indigo-600/25 scale-105' : theme === 'light' ? 'border border-neutral-200 bg-white hover:bg-neutral-100 hover:text-indigo-600 text-neutral-600' : 'border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800 hover:text-indigo-400 text-neutral-400'}`}>{page}</button>
+              </React.Fragment>
+            );
+          })}
+          <button onClick={onNext} disabled={currentPage === totalPg} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1 ${currentPage === totalPg ? 'opacity-40 cursor-not-allowed border border-transparent' : theme === 'light' ? 'border border-neutral-200 bg-white hover:bg-neutral-100 hover:text-indigo-600 text-neutral-700 shadow-sm cursor-pointer' : 'border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800 hover:text-indigo-400 text-neutral-300 shadow-md cursor-pointer'}`}>
+            Next <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Data Explorer ────────────────────────────────────────────────
+  const renderDataExplorer = () => {
+    const th = theme;
+    const card = `${th === 'light' ? 'bg-white border-neutral-200 shadow-md' : 'bg-neutral-900 border-neutral-800 shadow-2xl'}`;
+    const tableBg = `${th === 'light' ? 'border-neutral-200 bg-white' : 'border-neutral-800 bg-neutral-950'}`;
+    const theadTr = `border-b text-[10px] uppercase tracking-widest font-black transition-colors ${th === 'light' ? 'border-neutral-200 bg-neutral-50 text-neutral-500' : 'border-neutral-800 bg-neutral-900/30 text-neutral-500'}`;
+    const tdBase = `py-3.5 px-4 text-sm ${th === 'light' ? 'text-neutral-800' : 'text-neutral-200'}`;
+    const trHover = `cursor-pointer transition-colors border-b last:border-b-0 ${th === 'light' ? 'hover:bg-indigo-50/60 border-neutral-100' : 'hover:bg-indigo-950/30 border-neutral-800/40'}`;
+    const inputCls = `w-full rounded-xl py-2 pl-9 pr-3 text-xs border transition-colors focus:outline-none focus:ring-1 ${th === 'light' ? 'bg-white border-neutral-200 text-neutral-800 placeholder-neutral-400 focus:ring-indigo-500 focus:border-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200 placeholder-neutral-600 focus:ring-indigo-500/50 focus:border-indigo-500/50'}`;
+
+    const TABS: { key: 'users' | 'mines' | 'hardwares' | 'trucks'; label: string; icon: React.ReactNode }[] = [
+      { key: 'users', label: 'Users', icon: <Users className="w-4 h-4" /> },
+      { key: 'mines', label: 'Mines', icon: <HardHat className="w-4 h-4" /> },
+      { key: 'hardwares', label: 'Hardwares', icon: <Building2 className="w-4 h-4" /> },
+      { key: 'trucks', label: 'Trucks', icon: <Truck className="w-4 h-4" /> },
+    ];
+
+    // ── filter + paginate ──
+    const q = explorerSearch.trim().toLowerCase();
+
+    const filteredUsers = dbUsers.filter(u => {
+      if (!q) return true;
+      // search by name, nic, email, phone
+      return [u.name, u.nic, u.email, u.phone, u.phone_number, u.user_id].filter(Boolean).join(' ').toLowerCase().includes(q);
+    });
+    const filteredMines = rawMinesData.filter(m => {
+      if (!q) return true;
+      // search by name, id, owner name
+      const ownerName = getUserNameById(m.user_id);
+      return [m.mine_name, m.mine_id, ownerName].filter(Boolean).join(' ').toLowerCase().includes(q);
+    });
+    const filteredHardwares = rawHardwaresData.filter(h => {
+      if (!q) return true;
+      const ownerName = getUserNameById(h.user_id);
+      return [h.hardware_name, h.hardware_id, ownerName].filter(Boolean).join(' ').toLowerCase().includes(q);
+    });
+    const filteredTrucks = rawTrucks.filter(t => {
+      if (!q) return true;
+      return [t.number_plate, t.truck_id, t.user_id].filter(Boolean).join(' ').toLowerCase().includes(q);
+    });
+
+    const getFiltered = () => {
+      if (explorerTab === 'users') return filteredUsers;
+      if (explorerTab === 'mines') return filteredMines;
+      if (explorerTab === 'hardwares') return filteredHardwares;
+      return filteredTrucks;
+    };
+
+    const filteredAll = getFiltered();
+    const totalPg = Math.max(1, Math.ceil(filteredAll.length / EXPLORER_PAGE_SIZE));
+    const safePage = Math.min(explorerPage, totalPg);
+    const paginatedItems = filteredAll.slice((safePage - 1) * EXPLORER_PAGE_SIZE, safePage * EXPLORER_PAGE_SIZE);
+
+    // Copy button helper
+    const CopyBtn = ({ id }: { id: string }) => (
+      <button
+        onClick={e => { e.stopPropagation(); handleCopyId(id); }}
+        title="Copy full ID"
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-colors shrink-0 ${copiedId === id
+          ? th === 'light' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+          : th === 'light' ? 'border-neutral-200 bg-neutral-50 text-neutral-500 hover:bg-neutral-100' : 'border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+          }`}
+      >
+        {copiedId === id ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      </button>
+    );
+
+
+    // Search within user popup sub-tables
+    const subQ = popupSubSearch.trim().toLowerCase();
+
+    return (
+      <div className="flex flex-col gap-6 w-full animate-fadeIn">
+        {/* Header */}
+        <div className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-300 border ${card}`}>
+          <span className="px-3.5 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-full border border-indigo-500/20 uppercase tracking-widest">
+            DATABASE EXPLORER
+          </span>
+          <h1 className={`text-2xl lg:text-3xl font-black mt-3 tracking-tight transition-colors ${th === 'light' ? 'text-neutral-900' : 'text-white'}`}>Data Explorer</h1>
+          <p className={`text-xs max-w-2xl mt-1.5 leading-relaxed transition-colors ${th === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>
+            Browse and inspect all Users, Mines, Hardware stores, and Trucks from the live database. Click any row for detailed information.
+          </p>
+          <div className="absolute right-[-20px] bottom-[-20px] w-40 h-40 bg-indigo-500/[0.03] rounded-full blur-2xl"></div>
+        </div>
+
+        {/* Tab toggle */}
+        <div className={`p-1.5 rounded-2xl border flex items-center gap-1.5 w-full sm:w-max transition-all duration-300 ${th === 'light' ? 'bg-white border-neutral-200 shadow-sm' : 'bg-neutral-900 border-neutral-800'}`}>
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => { setExplorerTab(tab.key); setExplorerSearch(''); }}
+              className={`flex-1 sm:flex-none py-2 px-5 rounded-xl text-xs font-bold uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${explorerTab === tab.key
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                : th === 'light'
+                  ? 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+                }`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search + table */}
+        <div className={`p-6 rounded-3xl border flex flex-col gap-5 transition-all duration-300 ${card}`}>
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input
+              type="text"
+              placeholder={
+                explorerTab === 'users' ? 'Search by name, NIC, email or phone...'
+                  : explorerTab === 'mines' ? 'Search by mine name or owner name...'
+                    : explorerTab === 'hardwares' ? 'Search by hardware name or owner name...'
+                      : 'Search trucks by plate number...'
+              }
+              value={explorerSearch}
+              onChange={e => setExplorerSearch(e.target.value)}
+              className={`w-full rounded-xl py-2.5 pl-10 pr-4 text-sm border transition-colors focus:outline-none focus:ring-1 ${th === 'light'
+                ? 'bg-white border-neutral-200 text-neutral-800 placeholder-neutral-400 focus:ring-indigo-500 focus:border-indigo-500'
+                : 'bg-neutral-950 border-neutral-800 text-neutral-200 placeholder-neutral-600 focus:ring-indigo-500/50 focus:border-indigo-500/50'
+                }`}
+            />
+          </div>
+
+          {/* Table */}
+          <div className={`overflow-x-auto border rounded-2xl transition-colors ${tableBg}`}>
+            {explorerTab === 'users' && (
+              <table className="w-full text-left border-collapse min-w-[750px]">
+                <thead><tr className={theadTr}>
+                  <th className="py-3.5 px-4">Name</th>
+                  <th className="py-3.5 px-4">NIC</th>
+                  <th className="py-3.5 px-4">Email</th>
+                  <th className="py-3.5 px-4">Phone</th>
+                  <th className="py-3.5 px-4 text-center">Mines</th>
+                  <th className="py-3.5 px-4 text-center">Hardwares</th>
+                  <th className="py-3.5 px-4 text-center">Actions</th>
+                </tr></thead>
+                <tbody className={`divide-y text-sm ${th === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/50'}`}>
+                  {loading ? (
+                    <tr><td colSpan={7} className="py-10 text-center text-neutral-400 animate-pulse">Loading users...</td></tr>
+                  ) : paginatedItems.length === 0 ? (
+                    <tr><td colSpan={7} className="py-10 text-center text-neutral-400">No users found.</td></tr>
+                  ) : paginatedItems.map((u: any) => {
+                    const uid = u.user_id || u.id;
+                    const mineCount = rawMinesData.filter(m => m.user_id === uid).length;
+                    const hwCount = rawHardwaresData.filter(h => h.user_id === uid).length;
+                    return (
+                      <tr key={uid} onClick={() => { setPopupItem(u); setPopupType('user'); setUserPopupTab('mines'); setSubPopupItem(null); setSubPopupType(null); setPopupSubSearch(''); }} className={trHover}>
+                        <td className={tdBase}>
+                          <div className="flex items-center gap-2.5">
+                            {u.profile_picture ? (
+                              <img src={u.profile_picture} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-black ${th === 'light' ? 'bg-indigo-100 text-indigo-700' : 'bg-indigo-500/20 text-indigo-300'}`}>
+                                {(u.name || 'U')[0].toUpperCase()}
+                              </div>
+                            )}
+                            <span className="font-semibold">{u.name || 'Unknown'}</span>
+                          </div>
+                        </td>
+                        <td className={`${tdBase} font-mono text-xs`}>{u.nic || 'N/A'}</td>
+                        <td className={`${tdBase} text-xs`}>{u.email || 'N/A'}</td>
+                        <td className={`${tdBase} text-xs font-mono`}>{u.phone || u.phone_number || 'N/A'}</td>
+                        <td className={`${tdBase} text-center`}>
+                          <span className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 rounded-full text-[11px] font-black ${mineCount > 0
+                            ? th === 'light' ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/20 text-emerald-300'
+                            : th === 'light' ? 'bg-neutral-100 text-neutral-500' : 'bg-neutral-800 text-neutral-500'
+                            }`}>{mineCount}</span>
+                        </td>
+                        <td className={`${tdBase} text-center`}>
+                          <span className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 rounded-full text-[11px] font-black ${hwCount > 0
+                            ? th === 'light' ? 'bg-indigo-100 text-indigo-800' : 'bg-indigo-500/20 text-indigo-300'
+                            : th === 'light' ? 'bg-neutral-100 text-neutral-500' : 'bg-neutral-800 text-neutral-500'
+                            }`}>{hwCount}</span>
+                        </td>
+                        <td className={`${tdBase} text-center`}>
+                          <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
+                            <Eye className="w-3 h-3" /> View
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            {explorerTab === 'mines' && (
+              <table className="w-full text-left border-collapse min-w-[650px]">
+                <thead><tr className={theadTr}>
+                  <th className="py-3.5 px-4">Mine Name</th>
+                  <th className="py-3.5 px-4">Owner</th>
+                  <th className="py-3.5 px-4">Current Stock</th>
+                  <th className="py-3.5 px-4">Max Capacity</th>
+                  <th className="py-3.5 px-4">Coordinates</th>
+                  <th className="py-3.5 px-4 text-center">Actions</th>
+                </tr></thead>
+                <tbody className={`divide-y text-sm ${th === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/50'}`}>
+                  {loading ? (
+                    <tr><td colSpan={6} className="py-10 text-center text-neutral-400 animate-pulse">Loading mines...</td></tr>
+                  ) : paginatedItems.length === 0 ? (
+                    <tr><td colSpan={6} className="py-10 text-center text-neutral-400">No mines found.</td></tr>
+                  ) : paginatedItems.map((m: any) => (
+                    <tr key={m.mine_id} onClick={() => { setPopupItem(m); setPopupType('mine'); }} className={trHover}>
+                      <td className={tdBase}>
+                        <div className="font-semibold">{m.mine_name || 'Unnamed'}</div>
+                        <div className="font-mono text-[10px] text-neutral-400 mt-0.5 truncate max-w-[140px]">{m.mine_id}</div>
+                      </td>
+                      <td className={`${tdBase} text-xs`}>{getUserNameById(m.user_id)}</td>
+                      <td className={tdBase}><span className="font-mono font-bold">{m.current_cubes ?? 'N/A'}</span> m³</td>
+                      <td className={tdBase}><span className="font-mono font-bold">{m.maximum_cubes ?? 'N/A'}</span> m³</td>
+                      <td className={`${tdBase} text-xs font-mono`}>{m.latitude != null ? `${Number(m.latitude).toFixed(4)}, ${Number(m.longitude).toFixed(4)}` : 'N/A'}</td>
+                      <td className={`${tdBase} text-center`}>
+                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'}`}>
+                          <Eye className="w-3 h-3" /> View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {explorerTab === 'hardwares' && (
+              <table className="w-full text-left border-collapse min-w-[650px]">
+                <thead><tr className={theadTr}>
+                  <th className="py-3.5 px-4">Hardware Name</th>
+                  <th className="py-3.5 px-4">Owner</th>
+                  <th className="py-3.5 px-4">Current Stock</th>
+                  <th className="py-3.5 px-4">Max Capacity</th>
+                  <th className="py-3.5 px-4">Coordinates</th>
+                  <th className="py-3.5 px-4 text-center">Actions</th>
+                </tr></thead>
+                <tbody className={`divide-y text-sm ${th === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/50'}`}>
+                  {loading ? (
+                    <tr><td colSpan={6} className="py-10 text-center text-neutral-400 animate-pulse">Loading hardwares...</td></tr>
+                  ) : paginatedItems.length === 0 ? (
+                    <tr><td colSpan={6} className="py-10 text-center text-neutral-400">No hardware stores found.</td></tr>
+                  ) : paginatedItems.map((h: any) => (
+                    <tr key={h.hardware_id} onClick={() => { setPopupItem(h); setPopupType('hardware'); }} className={trHover}>
+                      <td className={tdBase}>
+                        <div className="font-semibold">{h.hardware_name || 'Unnamed'}</div>
+                        <div className="font-mono text-[10px] text-neutral-400 mt-0.5 truncate max-w-[140px]">{h.hardware_id}</div>
+                      </td>
+                      <td className={`${tdBase} text-xs`}>{getUserNameById(h.user_id)}</td>
+                      <td className={tdBase}><span className="font-mono font-bold">{h.current_cubes ?? 'N/A'}</span> m³</td>
+                      <td className={tdBase}><span className="font-mono font-bold">{h.maximum_cubes ?? 'N/A'}</span> m³</td>
+                      <td className={`${tdBase} text-xs font-mono`}>{h.latitude != null ? `${Number(h.latitude).toFixed(4)}, ${Number(h.longitude).toFixed(4)}` : 'N/A'}</td>
+                      <td className={`${tdBase} text-center`}>
+                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
+                          <Eye className="w-3 h-3" /> View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {explorerTab === 'trucks' && (
+              <table className="w-full text-left border-collapse min-w-[550px]">
+                <thead><tr className={theadTr}>
+                  <th className="py-3.5 px-4">Number Plate</th>
+                  <th className="py-3.5 px-4">Owner</th>
+                  <th className="py-3.5 px-4">Capacity</th>
+                  <th className="py-3.5 px-4 text-center">Actions</th>
+                </tr></thead>
+                <tbody className={`divide-y text-sm ${th === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/50'}`}>
+                  {loading ? (
+                    <tr><td colSpan={4} className="py-10 text-center text-neutral-400 animate-pulse">Loading trucks...</td></tr>
+                  ) : paginatedItems.length === 0 ? (
+                    <tr><td colSpan={4} className="py-10 text-center text-neutral-400">No trucks found.</td></tr>
+                  ) : paginatedItems.map((t: any, idx: number) => (
+                    <tr key={t.truck_id || t.number_plate || idx} onClick={() => { setPopupItem(t); setPopupType('truck'); }} className={trHover}>
+                      <td className={`${tdBase} font-mono font-bold`}>{t.number_plate || 'N/A'}</td>
+                      <td className={`${tdBase} text-xs`}>{getUserNameById(t.user_id)}</td>
+                      <td className={tdBase}><span className="font-mono">{t.capacity != null ? `${t.capacity} m³` : 'N/A'}</span></td>
+                      <td className={`${tdBase} text-center`}>
+                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-amber-500/25 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'}`}>
+                          <Eye className="w-3 h-3" /> View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {renderPagination(safePage, totalPg, filteredAll.length, EXPLORER_PAGE_SIZE,
+            () => setExplorerPage(p => Math.max(1, p - 1)),
+            () => setExplorerPage(p => Math.min(totalPg, p + 1)),
+            (p) => setExplorerPage(p)
+          )}
+        </div>
+
+        {/* ── Popups ── */}
+        <AnimatePresence>
+          {popupItem && popupType && (
+            <motion.div
+              key="popup-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+              style={{ backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', backgroundColor: th === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(10,10,14,0.75)' }}
+              onClick={e => { if (e.target === e.currentTarget) { setPopupItem(null); setPopupType(null); setSubPopupItem(null); setSubPopupType(null); } }}
+            >
+              {/* ── USER POPUP ── */}
+              {popupType === 'user' && (() => {
+                const u = popupItem;
+                const uid = u.user_id || u.id;
+                const userMines = rawMinesData.filter(m => m.user_id === uid);
+                const userHardwares = rawHardwaresData.filter(h => h.user_id === uid);
+                const userTrucks = rawTrucks.filter(t => t.user_id === uid);
+                const hasMines = userMines.length > 0;
+                const hasHardwares = userHardwares.length > 0;
+                const hasTrucks = userTrucks.length > 0;
+                const availableTabs = (['mines', 'hardwares', 'trucks'] as const).filter(t => t === 'mines' ? hasMines : t === 'hardwares' ? hasHardwares : hasTrucks);
+                const activeSubTab = availableTabs.includes(userPopupTab) ? userPopupTab : availableTabs[0] || 'mines';
+
+                const filteredSubMines = userMines.filter(m => !subQ || (m.mine_name || '').toLowerCase().includes(subQ));
+                const filteredSubHardwares = userHardwares.filter(h => !subQ || (h.hardware_name || '').toLowerCase().includes(subQ));
+                const filteredSubTrucks = userTrucks.filter(t => !subQ || (t.number_plate || '').toLowerCase().includes(subQ));
+
+                return (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 sm:p-8 flex flex-col gap-5 ${th === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => { setPopupItem(null); setPopupType(null); setSubPopupItem(null); setSubPopupType(null); }}
+                      className={`absolute top-4 right-4 p-2 rounded-xl border transition-colors cursor-pointer z-10 ${th === 'light' ? 'border-neutral-200 bg-white hover:bg-neutral-100 text-neutral-600' : 'border-neutral-800 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white'}`}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+
+                    {/* User header */}
+                    <div className="flex flex-col items-center gap-3 pb-5 border-b" style={{ borderColor: th === 'light' ? '#e5e7eb' : 'rgba(255,255,255,0.1)' }}>
+                      {u.profile_picture ? (
+                        <img src={u.profile_picture} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 shadow-lg" style={{ borderColor: th === 'light' ? '#e0e7ff' : '#4f46e5' }} />
+                      ) : (
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black border-4 shadow-lg ${th === 'light' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'}`}>
+                          {(u.name || 'U')[0].toUpperCase()}
+                        </div>
+                      )}
+                      <h2 className={`text-xl font-black ${th === 'light' ? 'text-neutral-900' : 'text-white'}`}>{u.name || 'Unknown User'}</h2>
+
+                      {/* Counts badges */}
+                      <div className="flex items-center gap-2 flex-wrap justify-center">
+                        {[{ label: 'Mines', count: userMines.length, color: th === 'light' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25' },
+                        { label: 'Hardwares', count: userHardwares.length, color: th === 'light' ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25' },
+                        { label: 'Trucks', count: userTrucks.length, color: th === 'light' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-amber-500/15 text-amber-300 border-amber-500/25' },
+                        ].map(b => (
+                          <span key={b.label} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black border ${b.color}`}>
+                            <span className="text-base font-black">{b.count}</span> {b.label}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Info grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full mt-1">
+                        {[
+                          { icon: <User className="w-3.5 h-3.5" />, label: 'NIC', value: u.nic || 'N/A', copy: false },
+                          { icon: <Mail className="w-3.5 h-3.5" />, label: 'Email', value: u.email || 'N/A', copy: false },
+                          { icon: <Phone className="w-3.5 h-3.5" />, label: 'Phone', value: u.phone || u.phone_number || 'N/A', copy: false },
+                          { icon: <ShieldCheck className="w-3.5 h-3.5" />, label: 'User ID', value: uid || 'N/A', copy: true },
+                        ].map(row => (
+                          <div key={row.label} className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                            <span className={`shrink-0 mt-0.5 ${th === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>{row.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className={`text-[9px] uppercase font-black tracking-wider mb-0.5 ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>{row.label}</div>
+                              <div className={`font-semibold flex items-center gap-1.5 ${th === 'light' ? 'text-neutral-800' : 'text-neutral-200'}`}>
+                                <span className={`truncate ${row.copy ? 'font-mono text-[10px]' : ''}`}>{row.copy && row.value !== 'N/A' ? row.value.slice(0, 20) + '...' : row.value}</span>
+                                {row.copy && row.value !== 'N/A' && <CopyBtn id={row.value} />}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Sub-tabs */}
+                    {availableTabs.length > 0 && (
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                          {/* tab toggles */}
+                          <div className={`flex p-1 rounded-2xl border text-xs font-bold w-max ${th === 'light' ? 'bg-neutral-100 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                            {availableTabs.map(tab => (
+                              <button key={tab} onClick={() => { setUserPopupTab(tab); setPopupSubSearch(''); }} className={`px-4 py-1.5 rounded-xl transition-all cursor-pointer capitalize ${userPopupTab === tab ? 'bg-indigo-600 text-white shadow-sm' : th === 'light' ? 'text-neutral-600 hover:text-neutral-900' : 'text-neutral-400 hover:text-white'}`}>{tab}</button>
+                            ))}
+                          </div>
+                          {/* sub-search */}
+                          <div className="relative flex-1">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+                            <input
+                              type="text"
+                              placeholder={`Search ${activeSubTab}...`}
+                              value={popupSubSearch}
+                              onChange={e => setPopupSubSearch(e.target.value)}
+                              className={inputCls}
+                              onClick={e => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+
+                        {/* mines sub-tab */}
+                        {activeSubTab === 'mines' && (
+                          <div className={`overflow-x-auto border rounded-2xl ${th === 'light' ? 'border-neutral-200' : 'border-neutral-800'}`}>
+                            <table className="w-full text-left border-collapse min-w-[400px]">
+                              <thead><tr className={theadTr}>
+                                <th className="py-3 px-4">Mine Name</th>
+                                <th className="py-3 px-4">Stock</th>
+                                <th className="py-3 px-4">Max</th>
+                                <th className="py-3 px-4">ID</th>
+                              </tr></thead>
+                              <tbody className={`divide-y text-xs ${th === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/50'}`}>
+                                {filteredSubMines.length === 0 ? (
+                                  <tr><td colSpan={4} className="py-6 text-center text-neutral-400">No mines match search.</td></tr>
+                                ) : filteredSubMines.map(m => (
+                                  <tr key={m.mine_id} onClick={() => { setSubPopupItem(m); setSubPopupType('mine'); }} className={trHover}>
+                                    <td className={`py-3 px-4 font-semibold ${th === 'light' ? 'text-neutral-800' : 'text-neutral-200'}`}>{m.mine_name}</td>
+                                    <td className={`py-3 px-4 font-mono ${th === 'light' ? 'text-neutral-700' : 'text-neutral-300'}`}>{m.current_cubes} m³</td>
+                                    <td className={`py-3 px-4 font-mono ${th === 'light' ? 'text-neutral-700' : 'text-neutral-300'}`}>{m.maximum_cubes} m³</td>
+                                    <td className="py-3 px-4">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-mono text-[10px] text-neutral-400 truncate max-w-[80px]">{(m.mine_id || '').slice(0, 10)}...</span>
+                                        {m.mine_id && <CopyBtn id={m.mine_id} />}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* hardwares sub-tab */}
+                        {activeSubTab === 'hardwares' && (
+                          <div className={`overflow-x-auto border rounded-2xl ${th === 'light' ? 'border-neutral-200' : 'border-neutral-800'}`}>
+                            <table className="w-full text-left border-collapse min-w-[400px]">
+                              <thead><tr className={theadTr}>
+                                <th className="py-3 px-4">Hardware Name</th>
+                                <th className="py-3 px-4">Stock</th>
+                                <th className="py-3 px-4">Max</th>
+                                <th className="py-3 px-4">ID</th>
+                              </tr></thead>
+                              <tbody className={`divide-y text-xs ${th === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/50'}`}>
+                                {filteredSubHardwares.length === 0 ? (
+                                  <tr><td colSpan={4} className="py-6 text-center text-neutral-400">No hardwares match search.</td></tr>
+                                ) : filteredSubHardwares.map(h => (
+                                  <tr key={h.hardware_id} onClick={() => { setSubPopupItem(h); setSubPopupType('hardware'); }} className={trHover}>
+                                    <td className={`py-3 px-4 font-semibold ${th === 'light' ? 'text-neutral-800' : 'text-neutral-200'}`}>{h.hardware_name}</td>
+                                    <td className={`py-3 px-4 font-mono ${th === 'light' ? 'text-neutral-700' : 'text-neutral-300'}`}>{h.current_cubes} m³</td>
+                                    <td className={`py-3 px-4 font-mono ${th === 'light' ? 'text-neutral-700' : 'text-neutral-300'}`}>{h.maximum_cubes} m³</td>
+                                    <td className="py-3 px-4">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-mono text-[10px] text-neutral-400 truncate max-w-[80px]">{(h.hardware_id || '').slice(0, 10)}...</span>
+                                        {h.hardware_id && <CopyBtn id={h.hardware_id} />}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* trucks sub-tab */}
+                        {activeSubTab === 'trucks' && (
+                          <div className={`overflow-x-auto border rounded-2xl ${th === 'light' ? 'border-neutral-200' : 'border-neutral-800'}`}>
+                            <table className="w-full text-left border-collapse min-w-[300px]">
+                              <thead><tr className={theadTr}>
+                                <th className="py-3 px-4">Number Plate</th>
+                                <th className="py-3 px-4">Capacity</th>
+                              </tr></thead>
+                              <tbody className={`divide-y text-xs ${th === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/50'}`}>
+                                {filteredSubTrucks.length === 0 ? (
+                                  <tr><td colSpan={2} className="py-6 text-center text-neutral-400">No trucks match search.</td></tr>
+                                ) : filteredSubTrucks.map((t, i) => (
+                                  <tr key={t.truck_id || i} onClick={() => { setSubPopupItem(t); setSubPopupType('truck'); }} className={trHover}>
+                                    <td className={`py-3 px-4 font-mono font-bold ${th === 'light' ? 'text-neutral-800' : 'text-neutral-200'}`}>{t.number_plate || 'N/A'}</td>
+                                    <td className={`py-3 px-4 font-mono ${th === 'light' ? 'text-neutral-700' : 'text-neutral-300'}`}>{t.capacity != null ? `${t.capacity} m³` : 'N/A'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {availableTabs.length === 0 && (
+                      <p className={`text-xs text-center py-4 ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>No associated mines, hardwares, or trucks found.</p>
+                    )}
+                  </motion.div>
+                );
+              })()}
+
+              {/* ── MINE POPUP ── */}
+              {popupType === 'mine' && (() => {
+                const m = popupItem;
+                const owner = dbUsers.find(u => u.user_id === m.user_id || u.id === m.user_id);
+                const fill = m.maximum_cubes > 0 ? Math.round((m.current_cubes / m.maximum_cubes) * 100) : 0;
+                const isOver = m.current_cubes > m.maximum_cubes;
+                const hasCoords = m.latitude != null && m.longitude != null;
+                return (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.16 }}
+                    className="flex flex-col md:flex-row gap-6 w-full max-w-5xl max-h-[90vh] items-stretch justify-center relative p-4"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {/* Left: Info card */}
+                    <div
+                      className={`relative flex-1 rounded-3xl border shadow-2xl p-6 sm:p-8 flex flex-col justify-between gap-5 overflow-y-auto ${th === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}
+                    >
+                      <button
+                        onClick={() => { setPopupItem(null); setPopupType(null); }}
+                        className={`absolute top-4 right-4 p-2 rounded-xl border transition-colors cursor-pointer z-20 ${th === 'light' ? 'border-neutral-200 bg-white hover:bg-neutral-100 text-neutral-600' : 'border-neutral-800 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white'}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <div className="flex flex-col gap-5">
+                        <div className="flex items-center gap-3 pr-8">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${th === 'light' ? 'bg-emerald-100' : 'bg-emerald-500/15'}`}>
+                            <HardHat className={`w-6 h-6 ${th === 'light' ? 'text-emerald-700' : 'text-emerald-400'}`} />
+                          </div>
+                          <div>
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${th === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>Mine</span>
+                            <h2 className={`text-xl font-black leading-snug ${th === 'light' ? 'text-neutral-900' : 'text-white'}`}>{m.mine_name || 'Unnamed Mine'}</h2>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { label: 'Current Stock', value: `${m.current_cubes ?? 'N/A'} m³`, color: isOver ? (th === 'light' ? 'text-rose-700' : 'text-rose-400') : '' },
+                            { label: 'Maximum Capacity', value: `${m.maximum_cubes ?? 'N/A'} m³` },
+                            { label: 'Owner', value: owner ? (owner.name || 'Unknown') : 'Unassigned' },
+                            { label: 'Owner NIC', value: owner ? (owner.nic || 'N/A') : 'N/A' },
+                          ].map(row => (
+                            <div key={row.label} className={`p-3.5 rounded-2xl border flex flex-col gap-1 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                              <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>{row.label}</span>
+                              <span className={`font-bold text-sm ${row.color || (th === 'light' ? 'text-neutral-800' : 'text-neutral-200')}`}>{row.value}</span>
+                            </div>
+                          ))}
+                          {/* Mine ID with copy */}
+                          <div className={`col-span-2 p-3.5 rounded-2xl border flex flex-col gap-1 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                            <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>Mine ID</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono text-xs truncate ${th === 'light' ? 'text-neutral-700' : 'text-neutral-300'}`}>{m.mine_id || 'N/A'}</span>
+                              {m.mine_id && <CopyBtn id={m.mine_id} />}
+                            </div>
+                          </div>
+                        </div>
+                        {/* Capacity bar */}
+                        <div className={`p-4 rounded-2xl border ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                          <div className="flex justify-between mb-2 text-xs font-bold">
+                            <span className={th === 'light' ? 'text-neutral-600' : 'text-neutral-400'}>Capacity Fill</span>
+                            <span className={isOver ? (th === 'light' ? 'text-rose-700' : 'text-rose-400') : (th === 'light' ? 'text-emerald-700' : 'text-emerald-400')}>{fill}% {isOver ? '⚠ OVERLOADED' : ''}</span>
+                          </div>
+                          <div className={`w-full h-2.5 rounded-full ${th === 'light' ? 'bg-neutral-200' : 'bg-neutral-800'}`}>
+                            <div className={`h-2.5 rounded-full transition-all ${isOver ? 'bg-rose-500' : fill > 75 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(fill, 100)}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Map card */}
+                    {hasCoords ? (
+                      <div
+                        className={`flex-1 rounded-3xl border shadow-2xl p-4 flex flex-col gap-3 min-h-[300px] md:min-h-0 ${th === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}
+                      >
+                        <div className="flex items-center gap-2 px-2 shrink-0">
+                          <MapPin className={`w-4 h-4 ${th === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`} />
+                          <span className={`font-black text-xs uppercase tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Location Map</span>
+                          <span className={`font-mono text-xs ml-auto ${th === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>{Number(m.latitude).toFixed(5)}, {Number(m.longitude).toFixed(5)}</span>
+                        </div>
+                        <div className="flex-1 rounded-2xl overflow-hidden border border-neutral-200/50 dark:border-neutral-800/80">
+                          <PopupMap lat={Number(m.latitude)} lng={Number(m.longitude)} label={m.mine_name || 'Mine'} theme={th} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`flex-1 rounded-3xl border p-8 flex items-center justify-center ${th === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}>
+                        <p className={`text-sm font-semibold ${th === 'light' ? 'text-neutral-400' : 'text-neutral-600'}`}>No location coordinates available.</p>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })()}
+
+
+              {/* ── HARDWARE POPUP (side-by-side with map) ── */}
+              {/* ── HARDWARE POPUP ── */}
+              {popupType === 'hardware' && (() => {
+                const h = popupItem;
+                const owner = dbUsers.find(u => u.user_id === h.user_id || u.id === h.user_id);
+                const fill = h.maximum_cubes > 0 ? Math.round((h.current_cubes / h.maximum_cubes) * 100) : 0;
+                const isOver = h.current_cubes > h.maximum_cubes;
+                const hasCoords = h.latitude != null && h.longitude != null;
+                return (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.16 }}
+                    className="flex flex-col md:flex-row gap-6 w-full max-w-5xl max-h-[90vh] items-stretch justify-center relative p-4"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {/* Left: Info card */}
+                    <div
+                      className={`relative flex-1 rounded-3xl border shadow-2xl p-6 sm:p-8 flex flex-col justify-between gap-5 overflow-y-auto ${th === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}
+                    >
+                      <button
+                        onClick={() => { setPopupItem(null); setPopupType(null); }}
+                        className={`absolute top-4 right-4 p-2 rounded-xl border transition-colors cursor-pointer z-20 ${th === 'light' ? 'border-neutral-200 bg-white hover:bg-neutral-100 text-neutral-600' : 'border-neutral-800 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white'}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <div className="flex flex-col gap-5">
+                        <div className="flex items-center gap-3 pr-8">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${th === 'light' ? 'bg-indigo-100' : 'bg-indigo-500/15'}`}>
+                            <Building2 className={`w-6 h-6 ${th === 'light' ? 'text-indigo-700' : 'text-indigo-400'}`} />
+                          </div>
+                          <div>
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${th === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>Hardware Store</span>
+                            <h2 className={`text-xl font-black leading-snug ${th === 'light' ? 'text-neutral-900' : 'text-white'}`}>{h.hardware_name || 'Unnamed Store'}</h2>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { label: 'Current Stock', value: `${h.current_cubes ?? 'N/A'} m³`, color: isOver ? (th === 'light' ? 'text-rose-700' : 'text-rose-400') : '' },
+                            { label: 'Maximum Capacity', value: `${h.maximum_cubes ?? 'N/A'} m³` },
+                            { label: 'Owner', value: owner ? (owner.name || 'Unknown') : 'Unassigned' },
+                            { label: 'Owner NIC', value: owner ? (owner.nic || 'N/A') : 'N/A' },
+                          ].map(row => (
+                            <div key={row.label} className={`p-3.5 rounded-2xl border flex flex-col gap-1 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                              <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>{row.label}</span>
+                              <span className={`font-bold text-sm ${row.color || (th === 'light' ? 'text-neutral-800' : 'text-neutral-200')}`}>{row.value}</span>
+                            </div>
+                          ))}
+                          {/* Hardware ID with copy */}
+                          <div className={`col-span-2 p-3.5 rounded-2xl border flex flex-col gap-1 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                            <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>Hardware ID</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono text-xs truncate ${th === 'light' ? 'text-neutral-700' : 'text-neutral-300'}`}>{h.hardware_id || 'N/A'}</span>
+                              {h.hardware_id && <CopyBtn id={h.hardware_id} />}
+                            </div>
+                          </div>
+                        </div>
+                        {/* Capacity bar */}
+                        <div className={`p-4 rounded-2xl border ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                          <div className="flex justify-between mb-2 text-xs font-bold">
+                            <span className={th === 'light' ? 'text-neutral-600' : 'text-neutral-400'}>Capacity Fill</span>
+                            <span className={isOver ? (th === 'light' ? 'text-rose-700' : 'text-rose-400') : (th === 'light' ? 'text-emerald-700' : 'text-emerald-400')}>{fill}% {isOver ? '⚠ OVERLOADED' : ''}</span>
+                          </div>
+                          <div className={`w-full h-2.5 rounded-full ${th === 'light' ? 'bg-neutral-200' : 'bg-neutral-800'}`}>
+                            <div className={`h-2.5 rounded-full transition-all ${isOver ? 'bg-rose-500' : fill > 75 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(fill, 100)}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Map card */}
+                    {hasCoords ? (
+                      <div
+                        className={`flex-1 rounded-3xl border shadow-2xl p-4 flex flex-col gap-3 min-h-[300px] md:min-h-0 ${th === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}
+                      >
+                        <div className="flex items-center gap-2 px-2 shrink-0">
+                          <MapPin className={`w-4 h-4 ${th === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`} />
+                          <span className={`font-black text-xs uppercase tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Location Map</span>
+                          <span className={`font-mono text-xs ml-auto ${th === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>{Number(h.latitude).toFixed(5)}, {Number(h.longitude).toFixed(5)}</span>
+                        </div>
+                        <div className="flex-1 rounded-2xl overflow-hidden border border-neutral-200/50 dark:border-neutral-800/80">
+                          <PopupMap lat={Number(h.latitude)} lng={Number(h.longitude)} label={h.hardware_name || 'Hardware Store'} theme={th} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`flex-1 rounded-3xl border p-8 flex items-center justify-center ${th === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}>
+                        <p className={`text-sm font-semibold ${th === 'light' ? 'text-neutral-400' : 'text-neutral-600'}`}>No location coordinates available.</p>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })()}
+
+              {/* ── TRUCK POPUP ── */}
+              {popupType === 'truck' && (() => {
+                const t = popupItem;
+                const owner = dbUsers.find(u => u.user_id === t.user_id || u.id === t.user_id);
+                return (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 sm:p-8 flex flex-col gap-5 ${th === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => { setPopupItem(null); setPopupType(null); }}
+                      className={`absolute top-4 right-4 p-2 rounded-xl border transition-colors cursor-pointer z-10 ${th === 'light' ? 'border-neutral-200 bg-white hover:bg-neutral-100 text-neutral-600' : 'border-neutral-800 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white'}`}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${th === 'light' ? 'bg-amber-100' : 'bg-amber-500/15'}`}>
+                        <Truck className={`w-6 h-6 ${th === 'light' ? 'text-amber-700' : 'text-amber-400'}`} />
+                      </div>
+                      <div>
+                        <span className={`text-[10px] font-black uppercase tracking-wider ${th === 'light' ? 'text-amber-600' : 'text-amber-400'}`}>Truck</span>
+                        <h2 className={`text-xl font-black leading-snug font-mono ${th === 'light' ? 'text-neutral-900' : 'text-white'}`}>{t.number_plate || 'Unknown Plate'}</h2>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: 'Number Plate', value: t.number_plate || 'N/A' },
+                        { label: 'Capacity', value: t.capacity != null ? `${t.capacity} m³` : 'N/A' },
+                        { label: 'Owner', value: owner ? (owner.name || 'Unknown') : 'Unassigned' },
+                        { label: 'Owner NIC', value: owner ? (owner.nic || 'N/A') : 'N/A' },
+                      ].map(row => (
+                        <div key={row.label} className={`p-3.5 rounded-2xl border flex flex-col gap-1 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                          <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>{row.label}</span>
+                          <span className={`font-bold text-sm ${th === 'light' ? 'text-neutral-800' : 'text-neutral-200'}`}>{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                );
+              })()}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Sub-item popup (mine/hardware/truck inside user popup) ── */}
+        <AnimatePresence>
+          {subPopupItem && subPopupType && (
+            <motion.div
+              key="sub-popup-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100000] flex items-center justify-center p-4"
+              style={{ backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', backgroundColor: th === 'light' ? 'rgba(255,255,255,0.65)' : 'rgba(10,10,14,0.82)' }}
+              onClick={e => { if (e.target === e.currentTarget) { setSubPopupItem(null); setSubPopupType(null); } }}
+            >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className={`relative w-full max-h-[85vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 flex flex-col gap-4 ${(subPopupType === 'mine' || subPopupType === 'hardware') ? 'max-w-5xl' : 'max-w-md'
+                  } ${th === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}
+                onClick={e => e.stopPropagation()}
+              >
+                <button onClick={() => { setSubPopupItem(null); setSubPopupType(null); }} className={`absolute top-4 right-4 p-2 rounded-xl border transition-colors cursor-pointer z-20 ${th === 'light' ? 'border-neutral-200 bg-white hover:bg-neutral-100 text-neutral-600' : 'border-neutral-800 bg-neutral-950 hover:bg-neutral-800 text-neutral-400'}`}>
+                  <X className="w-4 h-4" />
+                </button>
+
+                {subPopupType === 'mine' && (() => {
+                  const m = subPopupItem;
+                  const fill = m.maximum_cubes > 0 ? Math.round((m.current_cubes / m.maximum_cubes) * 100) : 0;
+                  const isOver = m.current_cubes > m.maximum_cubes;
+                  const hasCoords = m.latitude != null && m.longitude != null;
+                  return (
+                    <div className="flex flex-col md:flex-row gap-6 items-stretch justify-center">
+                      {/* Left: details */}
+                      <div className="flex-1 flex flex-col gap-4">
+                        <div className="flex items-center gap-3 pr-8">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${th === 'light' ? 'bg-emerald-100' : 'bg-emerald-500/15'}`}><HardHat className={`w-5 h-5 ${th === 'light' ? 'text-emerald-700' : 'text-emerald-400'}`} /></div>
+                          <div><span className={`text-[10px] font-black uppercase tracking-wider ${th === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>Mine</span><h3 className={`text-lg font-black ${th === 'light' ? 'text-neutral-900' : 'text-white'}`}>{m.mine_name}</h3></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {[{ label: 'Current Stock', value: `${m.current_cubes} m³`, hl: isOver }, { label: 'Max Capacity', value: `${m.maximum_cubes} m³` }].map(r => (
+                            <div key={r.label} className={`p-3 rounded-xl border flex flex-col gap-0.5 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                              <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>{r.label}</span>
+                              <span className={`font-bold text-sm ${r.hl ? (th === 'light' ? 'text-rose-700' : 'text-rose-400') : (th === 'light' ? 'text-neutral-800' : 'text-neutral-200')}`}>{r.value}</span>
+                            </div>
+                          ))}
+                          <div className={`col-span-2 p-3 rounded-xl border flex flex-col gap-0.5 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                            <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>Mine ID</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono text-xs truncate ${th === 'light' ? 'text-neutral-700' : 'text-neutral-300'}`}>{m.mine_id || 'N/A'}</span>
+                              {m.mine_id && <CopyBtn id={m.mine_id} />}
+                            </div>
+                          </div>
+                        </div>
+                        <div className={`p-3 rounded-xl border ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                          <div className="flex justify-between mb-1.5 text-xs font-bold"><span className={th === 'light' ? 'text-neutral-600' : 'text-neutral-400'}>Fill Level</span><span className={isOver ? (th === 'light' ? 'text-rose-700' : 'text-rose-400') : (th === 'light' ? 'text-emerald-700' : 'text-emerald-400')}>{fill}%</span></div>
+                          <div className={`w-full h-2 rounded-full ${th === 'light' ? 'bg-neutral-200' : 'bg-neutral-800'}`}><div className={`h-2 rounded-full ${isOver ? 'bg-rose-500' : fill > 75 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(fill, 100)}%` }}></div></div>
+                        </div>
+                      </div>
+
+                      {/* Right: Map */}
+                      {hasCoords ? (
+                        <div className={`flex-1 rounded-2xl p-4 flex flex-col gap-3 min-h-[300px] md:min-h-0 ${th === 'light' ? 'bg-neutral-50' : 'bg-neutral-950'}`}>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <MapPin className={`w-4 h-4 ${th === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`} />
+                            <span className={`font-black text-xs uppercase tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Location Map</span>
+                            <span className={`font-mono text-xs ml-auto ${th === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>{Number(m.latitude).toFixed(5)}, {Number(m.longitude).toFixed(5)}</span>
+                          </div>
+                          <div className="flex-1 rounded-xl overflow-hidden border border-neutral-200/50 dark:border-neutral-800/80">
+                            <PopupMap lat={Number(m.latitude)} lng={Number(m.longitude)} label={m.mine_name || 'Mine'} theme={th} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`flex-1 rounded-2xl p-8 flex items-center justify-center ${th === 'light' ? 'bg-neutral-50' : 'bg-neutral-950'}`}>
+                          <p className={`text-xs text-center ${th === 'light' ? 'text-neutral-400' : 'text-neutral-600'}`}>No coordinates available for map.</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {subPopupType === 'hardware' && (() => {
+                  const h = subPopupItem;
+                  const fill = h.maximum_cubes > 0 ? Math.round((h.current_cubes / h.maximum_cubes) * 100) : 0;
+                  const isOver = h.current_cubes > h.maximum_cubes;
+                  const hasCoords = h.latitude != null && h.longitude != null;
+                  return (
+                    <div className="flex flex-col md:flex-row gap-6 items-stretch justify-center">
+                      {/* Left: details */}
+                      <div className="flex-1 flex flex-col gap-4">
+                        <div className="flex items-center gap-3 pr-8">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${th === 'light' ? 'bg-indigo-100' : 'bg-indigo-500/15'}`}><Building2 className={`w-5 h-5 ${th === 'light' ? 'text-indigo-700' : 'text-indigo-400'}`} /></div>
+                          <div><span className={`text-[10px] font-black uppercase tracking-wider ${th === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>Hardware Store</span><h3 className={`text-lg font-black ${th === 'light' ? 'text-neutral-900' : 'text-white'}`}>{h.hardware_name}</h3></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {[{ label: 'Current Stock', value: `${h.current_cubes} m³`, hl: isOver }, { label: 'Max Capacity', value: `${h.maximum_cubes} m³` }].map(r => (
+                            <div key={r.label} className={`p-3 rounded-xl border flex flex-col gap-0.5 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                              <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>{r.label}</span>
+                              <span className={`font-bold text-sm ${r.hl ? (th === 'light' ? 'text-rose-700' : 'text-rose-400') : (th === 'light' ? 'text-neutral-800' : 'text-neutral-200')}`}>{r.value}</span>
+                            </div>
+                          ))}
+                          <div className={`col-span-2 p-3 rounded-xl border flex flex-col gap-0.5 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                            <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>Hardware ID</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono text-xs truncate ${th === 'light' ? 'text-neutral-700' : 'text-neutral-300'}`}>{h.hardware_id || 'N/A'}</span>
+                              {h.hardware_id && <CopyBtn id={h.hardware_id} />}
+                            </div>
+                          </div>
+                        </div>
+                        <div className={`p-3 rounded-xl border ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                          <div className="flex justify-between mb-1.5 text-xs font-bold"><span className={th === 'light' ? 'text-neutral-600' : 'text-neutral-400'}>Fill Level</span><span className={isOver ? (th === 'light' ? 'text-rose-700' : 'text-rose-400') : (th === 'light' ? 'text-emerald-700' : 'text-emerald-400')}>{fill}%</span></div>
+                          <div className={`w-full h-2 rounded-full ${th === 'light' ? 'bg-neutral-200' : 'bg-neutral-800'}`}><div className={`h-2 rounded-full ${isOver ? 'bg-rose-500' : fill > 75 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(fill, 100)}%` }}></div></div>
+                        </div>
+                      </div>
+
+                      {/* Right: Map */}
+                      {hasCoords ? (
+                        <div className={`flex-1 rounded-2xl p-4 flex flex-col gap-3 min-h-[300px] md:min-h-0 ${th === 'light' ? 'bg-neutral-50' : 'bg-neutral-950'}`}>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <MapPin className={`w-4 h-4 ${th === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`} />
+                            <span className={`font-black text-xs uppercase tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Location Map</span>
+                            <span className={`font-mono text-xs ml-auto ${th === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>{Number(h.latitude).toFixed(5)}, {Number(h.longitude).toFixed(5)}</span>
+                          </div>
+                          <div className="flex-1 rounded-xl overflow-hidden border border-neutral-200/50 dark:border-neutral-800/80">
+                            <PopupMap lat={Number(h.latitude)} lng={Number(h.longitude)} label={h.hardware_name || 'Hardware Store'} theme={th} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`flex-1 rounded-2xl p-8 flex items-center justify-center ${th === 'light' ? 'bg-neutral-50' : 'bg-neutral-950'}`}>
+                          <p className={`text-xs text-center ${th === 'light' ? 'text-neutral-400' : 'text-neutral-600'}`}>No coordinates available for map.</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {subPopupType === 'truck' && (() => {
+                  const t = subPopupItem;
+                  return (
+                    <div className="p-6 flex flex-col gap-4">
+                      <div className="flex items-center gap-3 pr-8">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${th === 'light' ? 'bg-amber-100' : 'bg-amber-500/15'}`}><Truck className={`w-5 h-5 ${th === 'light' ? 'text-amber-700' : 'text-amber-400'}`} /></div>
+                        <div><span className={`text-[10px] font-black uppercase tracking-wider ${th === 'light' ? 'text-amber-600' : 'text-amber-400'}`}>Truck</span><h3 className={`text-lg font-black font-mono ${th === 'light' ? 'text-neutral-900' : 'text-white'}`}>{t.number_plate || 'Unknown'}</h3></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {[{ label: 'Number Plate', value: t.number_plate || 'N/A' }, { label: 'Capacity', value: t.capacity != null ? `${t.capacity} m³` : 'N/A' }].map(r => (
+                          <div key={r.label} className={`p-3 rounded-xl border flex flex-col gap-0.5 ${th === 'light' ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-950 border-neutral-800'}`}>
+                            <span className={`text-[9px] uppercase font-black tracking-wider ${th === 'light' ? 'text-neutral-500' : 'text-neutral-500'}`}>{r.label}</span>
+                            <span className={`font-bold text-sm ${th === 'light' ? 'text-neutral-800' : 'text-neutral-200'}`}>{r.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
+
+
 
   const renderRegister = () => {
     return (
@@ -2866,9 +3469,9 @@ export default function App() {
 
             <div className="flex flex-col gap-1 relative">
               <label className={`text-[10px] font-bold uppercase ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Associated Geological / Distribution Node</label>
-              
+
               {/* Dropdown Toggle Trigger Button */}
-              <div 
+              <div
                 onClick={() => setIsNodeDropdownOpen(!isNodeDropdownOpen)}
                 className={`rounded-xl p-3 text-xs border flex items-center justify-between cursor-pointer transition-colors ${theme === 'light'
                   ? 'bg-white border-neutral-200 text-neutral-800'
@@ -2876,13 +3479,13 @@ export default function App() {
                   }`}
               >
                 <span>
-                  {fbLocationId 
+                  {fbLocationId
                     ? (() => {
-                        const matched = data.records.find(r => r.id === fbLocationId);
-                        return matched 
-                          ? `[${(matched.type || '').toUpperCase()}] ${matched.name || ''} (${matched.region || ''})` 
-                          : '-- Select Administrative Node --';
-                      })()
+                      const matched = data.records.find(r => r.id === fbLocationId);
+                      return matched
+                        ? `[${(matched.type || '').toUpperCase()}] ${matched.name || ''} (${matched.region || ''})`
+                        : '-- Select Administrative Node --';
+                    })()
                     : '-- Select Administrative Node (Auto-assigned if empty) --'
                   }
                 </span>
@@ -2895,7 +3498,7 @@ export default function App() {
                   ? 'bg-white border-neutral-200 bg-white'
                   : 'bg-neutral-950 border-neutral-900 shadow-black/80'
                   }`}>
-                  
+
                   {/* Search Input Box */}
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -2928,9 +3531,9 @@ export default function App() {
                     {(data.records || []).filter(rec => {
                       const query = nodeSearchQuery.toLowerCase().trim();
                       if (!query) return true;
-                      return (rec.name || '').toLowerCase().includes(query) || 
-                             (rec.type || '').toLowerCase().includes(query) || 
-                             (rec.region || '').toLowerCase().includes(query);
+                      return (rec.name || '').toLowerCase().includes(query) ||
+                        (rec.type || '').toLowerCase().includes(query) ||
+                        (rec.region || '').toLowerCase().includes(query);
                     }).map((rec) => (
                       <div
                         key={rec.id}
@@ -2948,12 +3551,12 @@ export default function App() {
                     {(data.records || []).filter(rec => {
                       const query = nodeSearchQuery.toLowerCase().trim();
                       if (!query) return true;
-                      return (rec.name || '').toLowerCase().includes(query) || 
-                             (rec.type || '').toLowerCase().includes(query) || 
-                             (rec.region || '').toLowerCase().includes(query);
+                      return (rec.name || '').toLowerCase().includes(query) ||
+                        (rec.type || '').toLowerCase().includes(query) ||
+                        (rec.region || '').toLowerCase().includes(query);
                     }).length === 0 && (
-                      <div className="p-2 text-xs text-neutral-500 text-center">No matching nodes found</div>
-                    )}
+                        <div className="p-2 text-xs text-neutral-500 text-center">No matching nodes found</div>
+                      )}
                   </div>
                 </div>
               )}
@@ -3378,6 +3981,19 @@ export default function App() {
                 Dashboard
               </button>
               <button
+                onClick={() => setActivePage('data-explorer')}
+                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'data-explorer'
+                  ? theme === 'light'
+                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                  : theme === 'light'
+                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                  }`}
+              >
+                Data Explorer
+              </button>
+              <button
                 onClick={() => setActivePage('registry')}
                 className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'registry'
                   ? theme === 'light'
@@ -3508,7 +4124,13 @@ export default function App() {
             onClick={() => setActivePage('dashboard')}
             className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'dashboard' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
           >
-            Dashboard
+            Home
+          </button>
+          <button
+            onClick={() => setActivePage('data-explorer')}
+            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'data-explorer' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
+          >
+            Explorer
           </button>
           <button
             onClick={() => setActivePage('registry')}
@@ -3523,12 +4145,6 @@ export default function App() {
             Register
           </button>
           <button
-            onClick={() => setActivePage('about')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'about' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
-          >
-            Guidelines
-          </button>
-          <button
             onClick={() => setActivePage('contact')}
             className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'contact' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
           >
@@ -3537,29 +4153,43 @@ export default function App() {
         </div>
 
         {/* MAIN ROUTED CONTENT */}
-        <main className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+        <main className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6 min-h-[70vh]">
           <AnimatePresence mode="wait">
             {activePage === 'dashboard' && (
               <motion.div
                 key="dashboard"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: "easeInOut" }}
                 className="flex flex-col gap-6 w-full"
               >
                 {renderDashboard()}
               </motion.div>
             )}
 
-            {/* ==================== 2. PERMIT LEDGER REGISTRY ==================== */}
+            {/* ==================== 2. DATA EXPLORER ==================== */}
+            {activePage === 'data-explorer' && (
+              <motion.div
+                key="data-explorer"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: "easeInOut" }}
+                className="w-full page-font-large"
+              >
+                {renderDataExplorer()}
+              </motion.div>
+            )}
+
+            {/* ==================== 3. PERMIT LEDGER REGISTRY ==================== */}
             {activePage === 'registry' && (
               <motion.div
                 key="registry"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: "easeInOut" }}
                 className="w-full page-font-large"
               >
                 {renderRegistry()}
@@ -3570,10 +4200,10 @@ export default function App() {
             {activePage === 'new-register' && (
               <motion.div
                 key="new-register"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: "easeInOut" }}
                 className="w-full page-font-large"
               >
                 {renderNewRegister()}
@@ -3584,10 +4214,10 @@ export default function App() {
             {activePage === 'about' && (
               <motion.div
                 key="about"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: "easeInOut" }}
                 className="w-full page-font-large"
               >
                 {renderAbout()}
@@ -3598,10 +4228,10 @@ export default function App() {
             {activePage === 'contact' && (
               <motion.div
                 key="contact"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: "easeInOut" }}
                 className="w-full page-font-large"
               >
                 {renderContact()}
