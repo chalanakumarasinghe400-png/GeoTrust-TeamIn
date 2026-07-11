@@ -1,0 +1,54 @@
+{
+  "mines": [
+    {
+      "mine_id": "1d9a8d96-6f43-4e67-b74f-f3d0f9e8f08c",
+      "mine_name": "Kurunegala Central Mine",
+      "user_id": "11111111-1111-1111-1111-111111111111",
+      "current_cubes": 40,
+      "maximum_cubes": 100,
+      "latitude": 7.4818,
+      "longitude": 80.3609
+    }
+  ],
+  "hardwares": [
+    {
+      "hardware_id": "a13b1aae-5f6f-4ba0-8aa3-bb241793673f",
+      "hardware_name": "Kurunegala Builders Hub",
+      "user_id": "22222222-2222-2222-2222-222222222222",
+      "current_cubes": 10,
+      "maximum_cubes": 50,
+      "latitude": 7.485,
+      "longitude": 80.365
+    }
+  ],
+  "users": {
+    "code": "PGRST205",
+    "details": null,
+    "hint": "Perhaps you meant the table 'public.user_accounts'",
+    "message": "Could not find the table 'public.users' in the schema cache"
+  },
+  "profiles": {
+    "code": "PGRST205",
+    "details": null,
+    "hint": "Perhaps you meant the table 'public.mines'",
+    "message": "Could not find the table 'public.profiles' in the schema cache"
+  },
+  "mine_owners": {
+    "code": "PGRST205",
+    "details": null,
+    "hint": "Perhaps you meant the table 'public.mine_permits'",
+    "message": "Could not find the table 'public.mine_owners' in the schema cache"
+  },
+  "owners": {
+    "code": "PGRST205",
+    "details": null,
+    "hint": "Perhaps you meant the table 'public.mines'",
+    "message": "Could not find the table 'public.owners' in the schema cache"
+  },
+  "operators": {
+    "code": "PGRST205",
+    "details": null,
+    "hint": "Perhaps you meant the table 'public.user_accounts'",
+    "message": "Could not find the table 'public.operators' in the schema cache"
+  }
+}

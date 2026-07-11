@@ -1,23 +1,20 @@
-# GSMB Admin Dashboard
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-Standalone admin dashboard website for the GeoTrust app. It includes:
+# Run and deploy your AI Studio app
 
-- Live-style overview cards
-- Map view for locations and incident hotspots
-- Charts for overloads, fraud flags, and transport status
-- Search, region, and risk filters
-- A detail panel for flagged locations
+This contains everything you need to run your app locally.
 
-## Run locally
+View your app in AI Studio: https://ai.studio/apps/994448c1-5bb5-4865-b1ef-55fc4269fe47
 
-Open `index.html` directly in a browser, or serve the folder with a static server:
+## Run Locally
 
-```bash
-python3 -m http.server 4173
-```
+**Prerequisites:**  Node.js
 
-Then visit `http://localhost:4173` from inside this folder.
 
-## Data hookup
-
-Replace the sample dataset in `app.js` with your GSMB backend or Supabase records when ready.
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

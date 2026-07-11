@@ -1,0 +1,508 @@
+@import "tailwindcss";
+
+/* Set fonts globally */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Smooth transitions */
+*, *::before, *::after {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.5);
+}
+
+/* ==================== LIGHT THEME OVERRIDES ==================== */
+.theme-light {
+  background-color: #f9fafb !important;
+  color: #111827 !important;
+}
+
+/* Base text color overrides */
+.theme-light, 
+.theme-light button, 
+.theme-light select, 
+.theme-light input, 
+.theme-light textarea {
+  color-scheme: light;
+}
+
+/* BG Neutral Overrides */
+.theme-light .bg-neutral-950 {
+  background-color: #f3f4f6 !important; /* gray-100 */
+}
+.theme-light .bg-neutral-950\/80 {
+  background-color: rgba(243, 244, 246, 0.8) !important;
+}
+.theme-light .bg-neutral-950\/60 {
+  background-color: rgba(243, 244, 246, 0.6) !important;
+}
+.theme-light .bg-neutral-900 {
+  background-color: #ffffff !important; /* solid white */
+}
+.theme-light .bg-neutral-900\/40 {
+  background-color: rgba(255, 255, 255, 0.4) !important;
+}
+.theme-light .bg-neutral-900\/90 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+.theme-light .bg-neutral-800 {
+  background-color: #f3f4f6 !important;
+}
+
+/* Border Overrides */
+.theme-light .border-neutral-900 {
+  border-color: #e5e7eb !important; /* gray-200 */
+}
+.theme-light .border-neutral-800 {
+  border-color: #e5e7eb !important; /* gray-200 */
+}
+.theme-light .border-neutral-800\/80 {
+  border-color: rgba(229, 231, 235, 0.8) !important;
+}
+.theme-light .border-neutral-700\/50 {
+  border-color: rgba(209, 213, 219, 0.5) !important;
+}
+.theme-light .divide-neutral-800\/50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e5e7eb !important;
+}
+
+/* Hover Overrides */
+.theme-light .hover\:bg-neutral-900:hover {
+  background-color: #f3f4f6 !important;
+}
+.theme-light .hover\:bg-neutral-900\/50:hover {
+  background-color: rgba(243, 244, 246, 0.5) !important;
+}
+.theme-light .hover\:bg-neutral-800\/30:hover {
+  background-color: rgba(243, 244, 246, 0.3) !important;
+}
+.theme-light .hover\:bg-neutral-700:hover {
+  background-color: #e5e7eb !important;
+}
+
+/* Hover text overrides */
+.theme-light .hover\:text-neutral-200:hover {
+  color: #111827 !important;
+}
+
+/* Text Overrides */
+.theme-light .text-white {
+  color: #111827 !important; /* gray-900 */
+}
+.theme-light .text-neutral-100 {
+  color: #1f2937 !important; /* gray-800 */
+}
+.theme-light .text-neutral-200 {
+  color: #374151 !important; /* gray-700 */
+}
+.theme-light .text-neutral-300 {
+  color: #4b5563 !important; /* gray-600 */
+}
+.theme-light .text-neutral-400 {
+  color: #4b5563 !important; /* gray-600 */
+}
+.theme-light .text-neutral-500 {
+  color: #6b7280 !important; /* gray-500 */
+}
+.theme-light .text-neutral-600 {
+  color: #6b7280 !important; /* gray-500 instead of 400 for high visibility */
+}
+
+/* Color Accent Overrides for High Contrast in Light Mode */
+.theme-light .text-indigo-400 {
+  color: #4f46e5 !important; /* Indigo 600 */
+}
+.theme-light .text-indigo-300 {
+  color: #312e81 !important; /* Indigo 900 */
+}
+.theme-light .text-rose-400 {
+  color: #e11d48 !important; /* Rose 600 */
+}
+.theme-light .text-rose-300 {
+  color: #881337 !important; /* Rose 900 */
+}
+.theme-light .text-amber-400 {
+  color: #d97706 !important; /* Amber 600 */
+}
+.theme-light .text-amber-300 {
+  color: #78350f !important; /* Amber 900 */
+}
+.theme-light .text-emerald-400 {
+  color: #059669 !important; /* Emerald 600 */
+}
+.theme-light .text-emerald-300 {
+  color: #064e3b !important; /* Emerald 900 */
+}
+.theme-light .text-emerald-500\/70 {
+  color: rgba(5, 150, 105, 0.7) !important;
+}
+.theme-light .text-indigo-400\/70 {
+  color: rgba(79, 70, 229, 0.7) !important;
+}
+
+/* Navigation & Button selections */
+.theme-light .bg-neutral-900.border.border-neutral-800.text-white {
+  background-color: #e5e7eb !important; /* gray-200 */
+  border-color: #d1d5db !important;
+  color: #111827 !important;
+}
+
+/* Active Type Tab */
+.theme-light .bg-indigo-600.text-white.font-extrabold {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+/* Keep selected items visible */
+.theme-light .bg-indigo-600\/10 {
+  background-color: rgba(79, 70, 229, 0.08) !important;
+}
+.theme-light .hover\:bg-indigo-600\/15:hover {
+  background-color: rgba(79, 70, 229, 0.12) !important;
+}
+
+/* Overwrite the bento grid bg overlays so they look subtle and soft in light theme */
+.theme-light .fixed.inset-0 .absolute.inset-0.bg-\[\#0a0a0a\] {
+  background-color: #f9fafb !important;
+}
+.theme-light .fixed.inset-0 div[style*="linear-gradient"] {
+  background-image: linear-gradient(rgba(0,0,0,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px) !important;
+}
+
+/* Leaflet Map elements light-theme adjustments */
+.theme-light .leaflet-container {
+  background-color: #f3f4f6 !important;
+}
+.theme-light .leaflet-bar a {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+.theme-light .leaflet-bar a:hover {
+  background-color: #f3f4f6 !important;
+}
+
+/* Profile inspector detail block overrides */
+.theme-light .bg-neutral-950.border.border-neutral-800.p-5 {
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+}
+.theme-light .bg-neutral-900\/90.border.border-neutral-800 {
+  background-color: #f3f4f6 !important;
+  border-color: #e5e7eb !important;
+}
+.theme-light .text-neutral-300.bg-neutral-900\/90 {
+  color: #1f2937 !important;
+}
+
+/* Table header override */
+.theme-light thead tr {
+  background-color: rgba(243, 244, 246, 0.5) !important;
+}
+
+/* Custom list filter buttons in dashboard list */
+.theme-light .bg-neutral-950.p-1.rounded-xl.border {
+  background-color: #f3f4f6 !important;
+  border-color: #e5e7eb !important;
+}
+
+/* Inputs, Selects, and Textareas placeholder and focus rings */
+.theme-light input::placeholder, 
+.theme-light textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Fix text colors inside buttons/icons with fixed styling */
+.theme-light .bg-neutral-800.hover\:bg-neutral-700 {
+  background-color: #f3f4f6 !important;
+  border-color: #e5e7eb !important;
+  color: #374151 !important;
+}
+.theme-light .bg-neutral-800.hover\:bg-neutral-700:hover {
+  background-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+/* Support ticket boxes on contact page */
+.theme-light .bg-neutral-950\/40.border {
+  background-color: #ffffff !important;
+}
+
+/* ==================== LEAFLET POPUP STYLES ==================== */
+.dark-leaflet-popup .leaflet-popup-content-wrapper {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+}
+.dark-leaflet-popup .leaflet-popup-tip {
+  background: #0f172a !important;
+}
+
+.theme-light .dark-leaflet-popup .leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+.theme-light .dark-leaflet-popup .leaflet-popup-tip {
+  background: #ffffff !important;
+}
+
+/* ==================== MODERN WEBSITE REIMAGINED STYLES ==================== */
+/* Custom scale and subtle transition lifts for grid elements */
+.modern-grid-card {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.modern-grid-card:hover {
+  transform: translateY(-4px) scale(1.01) !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.2) !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+.theme-light .modern-grid-card:hover {
+  box-shadow: 0 20px 40px -15px rgba(99, 102, 241, 0.1) !important;
+  border-color: rgba(79, 70, 229, 0.3) !important;
+}
+
+/* Glassmorphism overrides */
+.glass-header {
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+/* Glassmorphism utility classes */
+.glass-light {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+.glass-dark {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Input elements focus glows */
+input, select, textarea {
+  transition: all 0.2s ease-in-out !important;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(99, 102, 241, 0.6) !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* Modern oversized dashboard cards */
+.metric-card-val {
+  font-size: 2.25rem !important; /* Larger text for metrics */
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+}
+
+/* Telemetry Map Glowing indicator wrapper */
+.map-glow-container {
+  box-shadow: 0 0 40px -10px rgba(99, 102, 241, 0.1) !important;
+}
+
+/* Enlarge UI headers */
+.title-large {
+  font-size: 2.5rem !important;
+  line-height: 1.1 !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+}
+@media (max-width: 640px) {
+  .title-large {
+    font-size: 1.85rem !important;
+  }
+}
+
+/* ==================== PREMIUM DARK THEME OVERRIDES ==================== */
+body:not(.theme-light) {
+  background-color: #121214 !important;
+}
+body:not(.theme-light) .bg-neutral-950 {
+  background-color: #121214 !important;
+}
+body:not(.theme-light) .bg-\[\#0a0a0a\] {
+  background-color: #121214 !important;
+}
+body:not(.theme-light) .bg-neutral-900 {
+  background-color: #1e1e24 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+body:not(.theme-light) .bg-neutral-900\/60 {
+  background-color: rgba(30, 30, 36, 0.6) !important;
+}
+body:not(.theme-light) .border-neutral-800 {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+body:not(.theme-light) .border-neutral-800\/80 {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+body:not(.theme-light) .border-neutral-700\/50 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+body:not(.theme-light) .border-neutral-900 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+body:not(.theme-light) .divide-neutral-800\/50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+body:not(.theme-light) .modern-grid-card:hover {
+  background-color: #2b2b33 !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4), 0 0 25px rgba(99, 102, 241, 0.08) !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+body:not(.theme-light) header.border-b {
+  background-color: rgba(18, 18, 20, 0.75) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+body:not(.theme-light) input, 
+body:not(.theme-light) select, 
+body:not(.theme-light) textarea {
+  background-color: #121214 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+body:not(.theme-light) input:focus, 
+body:not(.theme-light) select:focus, 
+body:not(.theme-light) textarea:focus {
+  background-color: #1a1a1f !important;
+  border-color: rgba(99, 102, 241, 0.5) !important;
+}
+body:not(.theme-light) .bg-indigo-600\/15 {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+body:not(.theme-light) .border-indigo-500\/20 {
+  border-color: rgba(99, 102, 241, 0.25) !important;
+}
+
+/* Specific Hover Styles for top 4 color metrics cards to keep their distinct background colors */
+/* Dark Mode */
+body:not(.theme-light) .modern-grid-card.bg-indigo-950\/20:hover {
+  background-color: rgba(99, 102, 241, 0.18) !important;
+  border-color: rgba(99, 102, 241, 0.5) !important;
+  box-shadow: 0 20px 40px -15px rgba(99, 102, 241, 0.2), 0 0 25px rgba(99, 102, 241, 0.15) !important;
+}
+body:not(.theme-light) .modern-grid-card.bg-rose-950\/20:hover {
+  background-color: rgba(244, 63, 94, 0.18) !important;
+  border-color: rgba(244, 63, 94, 0.5) !important;
+  box-shadow: 0 20px 40px -15px rgba(244, 63, 94, 0.2), 0 0 25px rgba(244, 63, 94, 0.15) !important;
+}
+body:not(.theme-light) .modern-grid-card.bg-amber-950\/20:hover {
+  background-color: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  box-shadow: 0 20px 40px -15px rgba(245, 158, 11, 0.2), 0 0 25px rgba(245, 158, 11, 0.15) !important;
+}
+body:not(.theme-light) .modern-grid-card.bg-emerald-950\/20:hover {
+  background-color: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  box-shadow: 0 20px 40px -15px rgba(16, 185, 129, 0.2), 0 0 25px rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Light Mode */
+.theme-light .modern-grid-card.bg-indigo-50\/70:hover {
+  background-color: rgba(79, 70, 229, 0.12) !important;
+  border-color: rgba(79, 70, 229, 0.4) !important;
+  box-shadow: 0 20px 40px -15px rgba(79, 70, 229, 0.15) !important;
+}
+.theme-light .modern-grid-card.bg-rose-50\/70:hover {
+  background-color: rgba(225, 29, 72, 0.12) !important;
+  border-color: rgba(225, 29, 72, 0.4) !important;
+  box-shadow: 0 20px 40px -15px rgba(225, 29, 72, 0.15) !important;
+}
+.theme-light .modern-grid-card.bg-amber-50\/70:hover {
+  background-color: rgba(217, 119, 6, 0.12) !important;
+  border-color: rgba(217, 119, 6, 0.4) !important;
+  box-shadow: 0 20px 40px -15px rgba(217, 119, 6, 0.15) !important;
+}
+.theme-light .modern-grid-card.bg-emerald-50\/70:hover {
+  background-color: rgba(5, 150, 105, 0.12) !important;
+  border-color: rgba(5, 150, 105, 0.4) !important;
+  box-shadow: 0 20px 40px -15px rgba(5, 150, 105, 0.15) !important;
+}
+
+/* ==================== Font Scale Overrides for Non-Home Pages ==================== */
+.page-font-large p {
+  font-size: 0.9375rem !important; /* Bump up description text size a tiny bit */
+  line-height: 1.6 !important;
+}
+.page-font-large label {
+  font-size: 0.78rem !important; /* Make form field labels slightly larger */
+  letter-spacing: 0.05em !important;
+}
+.page-font-large input, 
+.page-font-large select, 
+.page-font-large textarea {
+  font-size: 0.875rem !important; /* Form input values slightly larger than base */
+  padding: 0.75rem 0.875rem !important; /* Slightly reduced padding to match */
+}
+.page-font-large span,
+.page-font-large td,
+.page-font-large th,
+.page-font-large a,
+.page-font-large button,
+.page-font-large option,
+.page-font-large li {
+  font-size: 0.875rem !important; /* Slightly larger tables, lists, alerts, and inline elements */
+}
+.page-font-large h1 {
+  font-size: 2rem !important;
+}
+.page-font-large h2 {
+  font-size: 1.5rem !important;
+}
+.page-font-large h3 {
+  font-size: 1.125rem !important;
+}
+
+/* ==================== Premium Aesthetic Page Color Accents ==================== */
+.site-reg-card {
+  border-left: 5px solid #4f46e5 !important; /* Premium Indigo Accent for Site Reg */
+}
+body:not(.theme-light) .site-reg-card {
+  border-left: 5px solid #6366f1 !important;
+}
+
+.user-reg-card {
+  border-left: 5px solid #10b981 !important; /* Premium Emerald Accent for User Reg */
+}
+body:not(.theme-light) .user-reg-card {
+  border-left: 5px solid #34d399 !important;
+}
+
+.incident-report-card {
+  border-left: 5px solid #f43f5e !important; /* Premium Rose Accent for Incident Dispatch */
+}
+body:not(.theme-light) .incident-report-card {
+  border-left: 5px solid #fb7185 !important;
+}
+
+/* Fix operational node type select text color visibility in light mode */
+.theme-light button.bg-indigo-600\/15 {
+  color: #4f46e5 !important; /* Premium Indigo Selected Text Color */
+}

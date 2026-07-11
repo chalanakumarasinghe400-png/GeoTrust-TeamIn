@@ -1,0 +1,6 @@
+{
+  "name": "GSMB Admin Dashboard",
+  "description": "Admin dashboard for monitoring locations, overloads, and fraud permits with real-time analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
