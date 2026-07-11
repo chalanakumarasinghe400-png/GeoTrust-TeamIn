@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Globe } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Globe, Layers } from 'lucide-react';
 import { ProcessedLocationRecord } from '../types';
 
 interface MapComponentProps {
@@ -17,6 +17,7 @@ export default function MapComponent({
   onSelectRecord,
   theme = 'dark',
 }: MapComponentProps) {
+  const [mapType, setMapType] = useState<'streets' | 'satellite'>('streets');
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -40,9 +41,11 @@ export default function MapComponent({
     if (!L || !mapContainerRef.current) return;
 
     const isLight = theme === 'light';
-    const tileUrl = isLight
-      ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    const tileUrl = mapType === 'satellite'
+      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+      : (isLight
+        ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
     // Initialize map if it doesn't exist
     if (!mapRef.current) {
@@ -179,7 +182,7 @@ export default function MapComponent({
       }
     }
     isFirstRenderRef.current = false;
-  }, [records, activeRecordId, onSelectRecord]);
+  }, [records, activeRecordId, onSelectRecord, mapType, theme]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -205,18 +208,34 @@ export default function MapComponent({
         LIVE OVERVIEW MAP
       </div>
 
-      {/* Whole Country View floating button */}
-      <button
-        onClick={handleResetView}
-        className={`absolute bottom-4 right-4 z-[1000] cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${
-          theme === 'light'
-            ? 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 hover:border-neutral-300 shadow-md'
-            : 'bg-neutral-900 border-neutral-800 text-white hover:bg-neutral-800 hover:border-neutral-700 shadow-2xl'
-        }`}
-      >
-        <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400 animate-spin-slow" />
-        <span>View Whole Country</span>
-      </button>
+      {/* Map Control Buttons overlay */}
+      <div className="absolute bottom-4 right-4 z-[1000] flex gap-2">
+        {/* Map Type Toggle */}
+        <button
+          onClick={() => setMapType(prev => prev === 'streets' ? 'satellite' : 'streets')}
+          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${
+            theme === 'light'
+              ? 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 shadow-md'
+              : 'bg-neutral-900 border-neutral-800 text-white hover:bg-neutral-800 shadow-2xl'
+          }`}
+        >
+          <Layers className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+          <span>{mapType === 'streets' ? 'Satellite View' : 'Map View'}</span>
+        </button>
+
+        {/* Whole Country View */}
+        <button
+          onClick={handleResetView}
+          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${
+            theme === 'light'
+              ? 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 hover:border-neutral-300 shadow-md'
+              : 'bg-neutral-900 border-neutral-800 text-white hover:bg-neutral-800 hover:border-neutral-700 shadow-2xl'
+          }`}
+        >
+          <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400 animate-spin-slow" />
+          <span>View Whole Country</span>
+        </button>
+      </div>
       
       {/* Leaflet instance container */}
       <div ref={mapContainerRef} className="w-full h-full" id="map-element" />

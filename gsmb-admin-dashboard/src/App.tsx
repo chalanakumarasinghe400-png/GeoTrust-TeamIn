@@ -42,6 +42,9 @@ import {
   CheckCheck,
 } from 'lucide-react';
 import MapComponent from './components/MapComponent';
+import AlertsPanel from './components/AlertsPanel';
+import AuditLogPanel, { AuditLogItem } from './components/AuditLogPanel';
+import PermitModal from './components/PermitModal';
 import { IncidentTrendChart, PermitStatusChart } from './components/Charts';
 import {
   RawLocation,
@@ -481,6 +484,42 @@ export default function App() {
       date: "2026-07-08",
     }
   ]);
+
+  const [selectedPermitForPdf, setSelectedPermitForPdf] = useState<ProcessedPermit | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([
+    {
+      id: "LOG-3092",
+      timestamp: new Date(Date.now() - 5 * 60000),
+      actor: "dtshoppr@gmail.com",
+      action: "PERMIT EXPORT",
+      details: "Downloaded compliance report PDF with type MINE SITES"
+    },
+    {
+      id: "LOG-2918",
+      timestamp: new Date(Date.now() - 25 * 60000),
+      actor: "dtshoppr@gmail.com",
+      action: "REGISTER MINE",
+      details: "Successfully registered mine site 'Kuruwita Quarry Depot' (ID: MIN-KRW-02)"
+    },
+    {
+      id: "LOG-2018",
+      timestamp: new Date(Date.now() - 3 * 3600000),
+      actor: "dtshoppr@gmail.com",
+      action: "USER SIGNIN",
+      details: "Admin authenticated via secure token grant"
+    }
+  ]);
+
+  const triggerAuditLog = useCallback((action: string, details: string) => {
+    const newLog: AuditLogItem = {
+      id: `LOG-${Math.floor(1000 + Math.random() * 9000)}`,
+      timestamp: new Date(),
+      actor: "dtshoppr@gmail.com",
+      action: action.toUpperCase(),
+      details: details
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+  }, []);
 
   // Fetch Supabase data with standard REST API
   const fetchSupabase = async (path: string) => {
@@ -1143,6 +1182,7 @@ export default function App() {
         throw new Error(parsedMessage || `Supabase query returned ${response.status}`);
       }
 
+      triggerAuditLog('REGISTER ' + regType, `Registered ${regType.toLowerCase()} site '${regName.trim()}' (NIC: ${regUserNic.trim()})`);
       setRegSuccess(true);
       // Setup next defaults
       setRegId(generateUUID());
@@ -1790,6 +1830,9 @@ export default function App() {
           </div>
         </section>
 
+        {/* Accountability Audit Log panel */}
+        <AuditLogPanel logs={auditLogs} theme={theme} />
+
       </div>
     );
   };
@@ -1915,7 +1958,7 @@ export default function App() {
                     const isCancelled = permit.status === 'CANCELLED';
 
                     return (
-                      <tr key={permit.id} className={`transition-colors border-b last:border-b-0 ${theme === 'light' ? 'hover:bg-neutral-50/50 border-neutral-100' : 'hover:bg-neutral-900/50 border-neutral-800/40'}`}>
+                      <tr key={permit.id} onClick={() => setSelectedPermitForPdf(permit)} className={`transition-colors border-b last:border-b-0 cursor-pointer ${theme === 'light' ? 'hover:bg-neutral-50/50 border-neutral-100' : 'hover:bg-neutral-900/50 border-neutral-800/40'}`}>
                         <td className={`py-4 px-5 font-mono ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>
                           <div className="font-black text-sm">{permit.permitCode}</div>
                           <div className={`text-[10px] font-sans font-bold mt-0.5 ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>{permit.originLocationName}</div>
@@ -3709,6 +3752,7 @@ export default function App() {
         throw new Error(parsedMessage || `Supabase database insertion returned status ${restResponse.status}`);
       }
 
+      triggerAuditLog('REGISTER USER', `Registered user account '${userRegName.trim()}' (NIC: ${userRegNic.trim()})`);
       setUserRegSuccess(true);
       setUserRegName('');
       setUserRegNic('');
@@ -4074,6 +4118,12 @@ export default function App() {
                 <span className="hidden sm:inline">Save Report</span>
               </button>
 
+              {/* Telemetry Alert Bell Center */}
+              <AlertsPanel
+                theme={theme}
+                onNewAlertTriggered={(msg) => triggerAuditLog('TELEMETRY ALERT', msg)}
+              />
+
               {/* Theme Toggle Button */}
               <button
                 onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
@@ -4261,6 +4311,12 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      <PermitModal
+        permit={selectedPermitForPdf}
+        onClose={() => setSelectedPermitForPdf(null)}
+        theme={theme}
+      />
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
