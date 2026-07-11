@@ -40,6 +40,7 @@ import {
   Eye,
   Copy,
   CheckCheck,
+  LogOut,
 } from 'lucide-react';
 import MapComponent from './components/MapComponent';
 import AlertsPanel from './components/AlertsPanel';
@@ -1115,6 +1116,54 @@ export default function App() {
       return matchesQuery && matchesStatus;
     });
   }, [allRawPermits, registrySearchQuery, registryStatusFilter]);
+
+  // Derived active telemetry alerts from raw database permits dataset
+  const realAlerts = useMemo<any[]>(() => {
+    const list: any[] = [];
+    allRawPermits.forEach((permit) => {
+      // 1. Overload Check
+      if (permit.volumeCubes > 5) {
+        list.push({
+          id: `alt-ov-${permit.id.slice(0, 4)}`,
+          timestamp: permit.transportDate,
+          truckNumber: permit.truckNumber,
+          location: permit.originLocationName || 'Registered Mining Site',
+          type: 'overload',
+          status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+          message: `Vehicle ${permit.truckNumber} overloaded: ${permit.volumeCubes} m³ loaded, standard limit 5m³.`,
+          read: permit.status === 'COMPLETED'
+        });
+      }
+      // 2. Unauthorized Route (GPS mismatch) Check
+      if (permit.gpsMismatch) {
+        list.push({
+          id: `alt-rt-${permit.id.slice(0, 4)}`,
+          timestamp: permit.transportDate,
+          truckNumber: permit.truckNumber,
+          location: permit.originLocationName || 'Transit Corridor',
+          type: 'unauthorized_route',
+          status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+          message: `Unauthorized route deviation flagged for vehicle ${permit.truckNumber} on permit ${permit.permitCode}.`,
+          read: permit.status === 'COMPLETED'
+        });
+      }
+      // 3. GPS Lost (Missing coordinates) Check
+      if (permit.status !== 'CANCELLED' && (!permit.unloadLatitude || !permit.unloadLongitude)) {
+        list.push({
+          id: `alt-gps-${permit.id.slice(0, 4)}`,
+          timestamp: permit.transportDate,
+          truckNumber: permit.truckNumber,
+          location: permit.originLocationName || 'Offline Corridor',
+          type: 'gps_lost',
+          status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+          message: `GPS signal lost: vehicle ${permit.truckNumber} destination coordinates missing.`,
+          read: permit.status === 'COMPLETED'
+        });
+      }
+    });
+    // Sort: newest alert first
+    return list.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }, [allRawPermits]);
 
   // Handle registering a new administrative node (Mine/Hardware store)
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -4004,165 +4053,132 @@ export default function App() {
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25">
                 <ShieldAlert className="w-4 h-4 text-white" />
               </div>
-              <div>
-                <span className={`text-sm font-black tracking-wider uppercase transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-neutral-100'
-                  }`}>GSMB GeoTrust</span>
-                <p className="text-[9px] text-indigo-400 font-mono tracking-widest uppercase font-bold">Oversight Portal</p>
+              <div className="flex items-center gap-2.5">
+                <div>
+                  <span className={`text-sm font-black tracking-wider uppercase transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-neutral-100'
+                    }`}>GSMB GeoTrust</span>
+                  <p className="text-[9px] text-indigo-400 font-mono tracking-widest uppercase font-bold leading-none mt-0.5">Oversight Portal</p>
+                </div>
+                {/* Tiny Connection Dot Indicator */}
+                <div
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    error
+                      ? 'bg-rose-500 animate-pulse'
+                      : (loading || isSyncing)
+                        ? 'bg-amber-500 animate-pulse'
+                        : 'bg-emerald-500'
+                  }`}
+                  title={error ? 'Offline' : (loading || isSyncing) ? 'Syncing...' : 'Connected to Database'}
+                />
               </div>
             </div>
 
-            {/* Navigation links */}
-            <nav className={`hidden md:flex items-center gap-2 text-[13px] font-bold uppercase transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'
-              }`}>
-              <button
-                onClick={() => setActivePage('dashboard')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'dashboard'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
-                  : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
-                  }`}
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => setActivePage('data-explorer')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'data-explorer'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
-                  : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
-                  }`}
-              >
-                Data Explorer
-              </button>
-              <button
-                onClick={() => setActivePage('registry')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'registry'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
-                  : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
-                  }`}
-              >
-                Permit List
-              </button>
-              <button
-                onClick={() => setActivePage('new-register')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'new-register'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
-                  : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
-                  }`}
-              >
-                New Register
-              </button>
-              <button
-                onClick={() => setActivePage('about')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'about'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
-                  : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
-                  }`}
-              >
-                Guidelines
-              </button>
-              <button
-                onClick={() => setActivePage('contact')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'contact'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
-                  : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
-                  }`}
-              >
-                Support & Reports
-              </button>
+            {/* Redesigned Navigation Tab Capsule */}
+            <nav className={`hidden md:flex items-center gap-1.5 p-1 rounded-2xl border transition-all ${
+              theme === 'light'
+                ? 'bg-neutral-100/80 border-neutral-200/60'
+                : 'bg-neutral-900/40 border-neutral-800/80'
+            } text-[11px] font-black uppercase tracking-wider`}>
+              {[
+                { key: 'dashboard', label: 'Dashboard' },
+                { key: 'data-explorer', label: 'Data Explorer' },
+                { key: 'registry', label: 'Permit List' },
+                { key: 'about', label: 'Guidelines' },
+                { key: 'contact', label: 'Support & Reports' }
+              ].map((tab) => {
+                const isActive = activePage === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActivePage(tab.key as any)}
+                    className={`px-4 py-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                      isActive
+                        ? (theme === 'light'
+                          ? 'bg-white text-indigo-600 shadow-sm border border-neutral-200/40'
+                          : 'bg-neutral-800 text-white shadow-md border border-neutral-700/30')
+                        : (theme === 'light'
+                          ? 'text-neutral-600 hover:text-neutral-950 border border-transparent'
+                          : 'text-neutral-400 hover:text-white border border-transparent')
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </nav>
 
-            <div className="flex items-center gap-3">
-              {/* Global Quick Action Buttons */}
-              <button
-                onClick={() => loadData(false)}
-                disabled={loading || isSyncing}
-                className={`px-3.5 py-2 disabled:opacity-50 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border ${theme === 'light'
-                  ? 'bg-white hover:bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-indigo-600'
-                  : 'bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-800/80 hover:border-neutral-700 hover:text-indigo-400'
-                  }`}
-                title="Refresh Data"
-              >
-                <RotateCw className={`w-3.5 h-3.5 ${loading || isSyncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh Data</span>
-              </button>
-              <button
-                onClick={handleExport}
-                disabled={filteredRecords.length === 0}
-                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5 shadow-indigo-600/25"
-                title="Save Report"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Save Report</span>
-              </button>
+            <div className="flex items-center gap-2">
+              {/* Unified Controls Dock */}
+              <div className={`flex items-center gap-1.5 p-1 rounded-2xl border transition-all ${
+                theme === 'light' ? 'bg-neutral-100/85 border-neutral-200/50' : 'bg-neutral-900/60 border-neutral-800/50'
+              }`}>
+                {/* Refresh Action */}
+                <button
+                  onClick={() => loadData(false)}
+                  disabled={loading || isSyncing}
+                  className={`p-1.5 rounded-lg disabled:opacity-50 transition-all cursor-pointer text-neutral-500 hover:text-neutral-800 dark:hover:text-white`}
+                  title="Refresh Data"
+                >
+                  <RotateCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin' : ''}`} />
+                </button>
 
-              {/* Telemetry Alert Bell Center */}
-              <AlertsPanel
-                theme={theme}
-                onNewAlertTriggered={(msg) => triggerAuditLog('TELEMETRY ALERT', msg)}
-              />
+                {/* Save Report Action */}
+                <button
+                  onClick={handleExport}
+                  disabled={filteredRecords.length === 0}
+                  className={`p-1.5 rounded-lg disabled:opacity-50 transition-all cursor-pointer text-neutral-500 hover:text-neutral-800 dark:hover:text-white`}
+                  title="Save Report"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
 
-              {/* Theme Toggle Button */}
-              <button
-                onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                className={`p-2 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
-                  ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900'
-                  : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-white'
-                  }`}
-                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                id="theme-toggle-btn"
-              >
-                <div className="relative w-5 h-5 flex items-center justify-center">
-                  <Sun className={`w-4 h-4 absolute text-amber-500 transition-all duration-500 ease-out ${theme === 'light' ? 'rotate-0 scale-100 opacity-100' : 'rotate-90 scale-0 opacity-0'
-                    }`} />
-                  <Moon className={`w-4 h-4 absolute text-indigo-400 transition-all duration-500 ease-out ${theme === 'dark' ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'
-                    }`} />
-                </div>
-              </button>
+                {/* Telemetry Alert Bell Center (Synced to Database permits) */}
+                <AlertsPanel
+                  theme={theme}
+                  alerts={realAlerts}
+                  onNewAlertTriggered={(msg) => triggerAuditLog('TELEMETRY ALERT', msg)}
+                />
 
-              {/* Sign Out Button */}
-              <button
-                onClick={handleLogout}
-                className={`p-2 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
-                  ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-rose-600'
-                  : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-rose-400'
-                  }`}
-                title="Sign Out"
-              >
-                <XCircle className="w-4.5 h-4.5" />
-              </button>
+                {/* Theme Toggle Button */}
+                <button
+                  onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+                  className={`p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer text-neutral-500 hover:text-neutral-800 dark:hover:text-white`}
+                  title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                  id="theme-toggle-btn"
+                >
+                  <div className="relative w-4 h-4 flex items-center justify-center">
+                    <Sun className={`w-4 h-4 absolute text-amber-500 transition-all duration-500 ease-out ${theme === 'light' ? 'rotate-0 scale-100 opacity-100' : 'rotate-90 scale-0 opacity-0'
+                      }`} />
+                    <Moon className={`w-4 h-4 absolute text-indigo-400 transition-all duration-500 ease-out ${theme === 'dark' ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'
+                      }`} />
+                  </div>
+                </button>
 
-              <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${error
-                ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                : (loading || isSyncing)
-                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 animate-pulse'
-                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${error ? 'bg-rose-50' : (loading || isSyncing) ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                {error ? 'Offline' : (loading || isSyncing) ? 'Syncing...' : `Connected`}
+                {/* Sign Out Button */}
+                <button
+                  onClick={handleLogout}
+                  className={`p-1.5 rounded-lg transition-all cursor-pointer text-neutral-500 hover:text-rose-500 dark:hover:text-rose-400`}
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
+
+              {/* User Avatar Badge */}
+              <div className={`hidden lg:flex items-center gap-2 pl-2 border-l ${
+                theme === 'light' ? 'border-neutral-200' : 'border-neutral-800'
+              }`}>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-md shadow-indigo-500/10">
+                  {authUser?.email ? authUser.email[0].toUpperCase() : 'D'}
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] font-black tracking-wider leading-none text-neutral-800 dark:text-neutral-200">
+                    {authUser?.email ? authUser.email.split('@')[0] : 'Administrator'}
+                  </span>
+                  <span className="text-[8px] font-bold text-indigo-400 font-mono tracking-wide mt-0.5 font-sans">GSMB Staff</span>
+                </div>
+              </div>
+
             </div>
 
           </div>

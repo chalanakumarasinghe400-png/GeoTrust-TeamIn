@@ -15,102 +15,47 @@ export interface AlertItem {
 
 interface AlertsPanelProps {
   theme: 'light' | 'dark';
-  onNewAlertTriggered?: (logMessage: string) => void; // Connect to audit log
+  alerts: AlertItem[];
+  onNewAlertTriggered?: (logMessage: string) => void;
 }
 
-const INITIAL_ALERTS: AlertItem[] = [
-  {
-    id: 'alt-001',
-    timestamp: new Date(Date.now() - 4 * 60000), // 4 mins ago
-    truckNumber: 'WP LH-8902',
-    location: 'Kaduwela Exchange',
-    type: 'overload',
-    status: 'active',
-    message: 'Load limit exceeded (5.8m³ registered, maximum 5.0m³).',
-    read: false
-  },
-  {
-    id: 'alt-002',
-    timestamp: new Date(Date.now() - 15 * 60000), // 15 mins ago
-    truckNumber: 'CP LY-4590',
-    location: 'A9 Highway, Dambulla',
-    type: 'gps_lost',
-    status: 'active',
-    message: 'GPS tracking signal lost for more than 10 minutes.',
-    read: false
-  },
-  {
-    id: 'alt-003',
-    timestamp: new Date(Date.now() - 45 * 60000), // 45 mins ago
-    truckNumber: 'SP KA-3021',
-    location: 'Deduru Oya Buffer Zone',
-    type: 'unauthorized_route',
-    status: 'active',
-    message: 'Deviation detected from authorized transit path into river reservation.',
-    read: true
-  }
-];
-
-const SIMULATED_VEHICLE_NUMBERS = ['WP LH-3024', 'EP PH-9821', 'NW LH-5567', 'WP LP-7712', 'CP LY-8812'];
-const SIMULATED_LOCATIONS = ['Hanwella Quarry Road', 'Rathnapura Bypass', 'Katunayake Expressway Exit', 'Kurunegala Depot', 'Ja-Ela Transit Node'];
-const SIMULATED_VIOLATIONS = [
-  {
-    type: 'overload' as const,
-    message: 'Weight limit warning: volume capacity threshold exceeded by 15%.'
-  },
-  {
-    type: 'gps_lost' as const,
-    message: 'Critical telemetry disruption: remote GPS tracking device offline.'
-  },
-  {
-    type: 'unauthorized_route' as const,
-    message: 'Geofencing alert: vehicle entered restricted environmental protection zone.'
-  }
-];
-
-export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelProps) {
-  const [alerts, setAlerts] = useState<AlertItem[]>(INITIAL_ALERTS);
+export default function AlertsPanel({ theme, alerts, onNewAlertTriggered }: AlertsPanelProps) {
+  const [readAlertIds, setReadAlertIds] = useState<string[]>([]);
+  const [resolvedAlertIds, setResolvedAlertIds] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [toasts, setToasts] = useState<AlertItem[]>([]);
+  const [prevAlertsCount, setPrevAlertsCount] = useState(alerts.length);
 
-  const unreadCount = alerts.filter(a => !a.read).length;
-
-  // Simulator for incoming alerts (runs every 45 seconds to make dashboard feel alive)
+  // Synchronize new toast alert when alerts list size increases
   useEffect(() => {
-    const interval = setInterval(() => {
-      const randomVehicle = SIMULATED_VEHICLE_NUMBERS[Math.floor(Math.random() * SIMULATED_VEHICLE_NUMBERS.length)];
-      const randomLocation = SIMULATED_LOCATIONS[Math.floor(Math.random() * SIMULATED_LOCATIONS.length)];
-      const randomViolation = SIMULATED_VIOLATIONS[Math.floor(Math.random() * SIMULATED_VIOLATIONS.length)];
+    if (alerts.length > prevAlertsCount) {
+      const newAlerts = alerts.slice(0, alerts.length - prevAlertsCount);
+      setToasts(prev => [...prev, ...newAlerts]);
+      newAlerts.forEach(newAlert => {
+        if (onNewAlertTriggered) {
+          onNewAlertTriggered(`System flagged active permit violation: ${newAlert.message}`);
+        }
+      });
+    }
+    setPrevAlertsCount(alerts.length);
+  }, [alerts, prevAlertsCount, onNewAlertTriggered]);
 
-      const newAlert: AlertItem = {
-        id: `alt-${Math.random().toString(36).substr(2, 5)}`,
-        timestamp: new Date(),
-        truckNumber: randomVehicle,
-        location: randomLocation,
-        type: randomViolation.type,
-        status: 'active',
-        message: `${randomVehicle} at ${randomLocation}: ${randomViolation.message}`,
-        read: false
-      };
+  const processedAlerts = alerts.map(alert => ({
+    ...alert,
+    read: alert.read || readAlertIds.includes(alert.id),
+    status: resolvedAlertIds.includes(alert.id) ? ('resolved' as const) : alert.status
+  }));
 
-      setAlerts(prev => [newAlert, ...prev]);
-      setToasts(prev => [...prev, newAlert]);
-
-      // Propagate event to audit trail
-      if (onNewAlertTriggered) {
-        onNewAlertTriggered(`System triggered telemetry alert ${newAlert.id.toUpperCase()} on vehicle ${newAlert.truckNumber}`);
-      }
-    }, 45000);
-
-    return () => clearInterval(interval);
-  }, [onNewAlertTriggered]);
+  const unreadCount = processedAlerts.filter(a => !a.read && a.status === 'active').length;
 
   const handleMarkAllRead = () => {
-    setAlerts(prev => prev.map(a => ({ ...a, read: true })));
+    const unreadIds = processedAlerts.filter(a => !a.read).map(a => a.id);
+    setReadAlertIds(prev => [...prev, ...unreadIds]);
   };
 
   const handleResolveAlert = (id: string) => {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'resolved' as const, read: true } : a));
+    setResolvedAlertIds(prev => [...prev, id]);
+    setReadAlertIds(prev => [...prev, id]);
     if (onNewAlertTriggered) {
       onNewAlertTriggered(`Admin resolved telemetry alert ${id.toUpperCase()}`);
     }
@@ -191,10 +136,10 @@ export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelP
 
                 {/* List Container */}
                 <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800/40">
-                  {alerts.length === 0 ? (
+                  {processedAlerts.length === 0 ? (
                     <div className="p-8 text-center text-xs text-neutral-500 italic">No telemetry alerts active.</div>
                   ) : (
-                    alerts.map(alert => (
+                    processedAlerts.map(alert => (
                       <div
                         key={alert.id}
                         className={`p-4 transition-colors relative flex flex-col gap-1.5 ${
