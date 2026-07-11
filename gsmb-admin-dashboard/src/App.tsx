@@ -1820,7 +1820,6 @@ export default function App() {
           <div className="flex flex-col gap-2">
             <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Search License / Truck Plate / Site Name</label>
             <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
               <input
                 type="text"
                 placeholder="Search permit, truck, mine, hardware..."
@@ -1831,6 +1830,7 @@ export default function App() {
                   : 'bg-neutral-950 border-neutral-800 text-neutral-200 placeholder-neutral-600 focus:ring-indigo-500/50 focus:border-indigo-500/50'
                   }`}
               />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
             </div>
           </div>
 
@@ -2033,7 +2033,7 @@ export default function App() {
     const theadTr = `border-b text-[10px] uppercase tracking-widest font-black transition-colors ${th === 'light' ? 'border-neutral-200 bg-neutral-50 text-neutral-500' : 'border-neutral-800 bg-neutral-900/30 text-neutral-500'}`;
     const tdBase = `py-3.5 px-4 text-sm ${th === 'light' ? 'text-neutral-800' : 'text-neutral-200'}`;
     const trHover = `cursor-pointer transition-colors border-b last:border-b-0 ${th === 'light' ? 'hover:bg-indigo-50/60 border-neutral-100' : 'hover:bg-indigo-950/30 border-neutral-800/40'}`;
-    const inputCls = `w-full rounded-xl py-2 pl-9 pr-3 text-xs border transition-colors focus:outline-none focus:ring-1 ${th === 'light' ? 'bg-white border-neutral-200 text-neutral-800 placeholder-neutral-400 focus:ring-indigo-500 focus:border-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200 placeholder-neutral-600 focus:ring-indigo-500/50 focus:border-indigo-500/50'}`;
+    const inputCls = `w-full rounded-xl py-2 pl-10 pr-3 text-xs border transition-colors focus:outline-none focus:ring-1 ${th === 'light' ? 'bg-white border-neutral-200 text-neutral-800 placeholder-neutral-400 focus:ring-indigo-500 focus:border-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200 placeholder-neutral-600 focus:ring-indigo-500/50 focus:border-indigo-500/50'}`;
 
     const TABS: { key: 'users' | 'mines' | 'hardwares' | 'trucks'; label: string; icon: React.ReactNode }[] = [
       { key: 'users', label: 'Users', icon: <Users className="w-4 h-4" /> },
@@ -2132,7 +2132,6 @@ export default function App() {
         <div className={`p-6 rounded-3xl border flex flex-col gap-5 transition-all duration-300 ${card}`}>
           {/* Search bar */}
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <input
               type="text"
               placeholder={
@@ -2148,6 +2147,7 @@ export default function App() {
                 : 'bg-neutral-950 border-neutral-800 text-neutral-200 placeholder-neutral-600 focus:ring-indigo-500/50 focus:border-indigo-500/50'
                 }`}
             />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
           </div>
 
           {/* Table */}
@@ -2347,6 +2347,8 @@ export default function App() {
                 const hasTrucks = userTrucks.length > 0;
                 const availableTabs = (['mines', 'hardwares', 'trucks'] as const).filter(t => t === 'mines' ? hasMines : t === 'hardwares' ? hasHardwares : hasTrucks);
                 const activeSubTab = availableTabs.includes(userPopupTab) ? userPopupTab : availableTabs[0] || 'mines';
+                const subQ = popupSubSearch.trim().toLowerCase();
+                const inputCls = `w-full rounded-xl py-2 pl-10 pr-3 text-xs border transition-colors focus:outline-none focus:ring-1 ${th === 'light' ? 'bg-white border-neutral-200 text-neutral-800 placeholder-neutral-400 focus:ring-indigo-500 focus:border-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200 placeholder-neutral-600 focus:ring-indigo-500/50 focus:border-indigo-500/50'}`;
 
                 const filteredSubMines = userMines.filter(m => !subQ || (m.mine_name || '').toLowerCase().includes(subQ));
                 const filteredSubHardwares = userHardwares.filter(h => !subQ || (h.hardware_name || '').toLowerCase().includes(subQ));
@@ -2354,6 +2356,7 @@ export default function App() {
 
                 return (
                   <motion.div
+                    key="user-popup-modal-container"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -2425,7 +2428,6 @@ export default function App() {
                           </div>
                           {/* sub-search */}
                           <div className="relative flex-1">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
                             <input
                               type="text"
                               placeholder={`Search ${activeSubTab}...`}
@@ -2434,6 +2436,7 @@ export default function App() {
                               className={inputCls}
                               onClick={e => e.stopPropagation()}
                             />
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 pointer-events-none" />
                           </div>
                         </div>
 
@@ -3501,7 +3504,6 @@ export default function App() {
 
                   {/* Search Input Box */}
                   <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       placeholder="Search nodes by name or district..."
@@ -3513,6 +3515,7 @@ export default function App() {
                         : 'bg-neutral-900 border-neutral-800 text-neutral-200 focus:ring-1 focus:ring-indigo-500'
                         }`}
                     />
+                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
 
                   {/* Scrollable List of Options */}
