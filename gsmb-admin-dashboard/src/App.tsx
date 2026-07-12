@@ -359,7 +359,7 @@ export default function App() {
     const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer', 'compliance'];
     return (validPages.includes(saved || '') ? saved : 'dashboard') as any;
   });
-  const [registerTab, setRegisterTab] = useState<'site' | 'user'>('site');
+  const [registerTab, setRegisterTab] = useState<'site' | 'user' | 'truck'>('site');
 
   useEffect(() => {
     localStorage.setItem('gsmb_active_page', activePage);
@@ -387,10 +387,25 @@ export default function App() {
   const [userRegName, setUserRegName] = useState('');
   const [userRegNic, setUserRegNic] = useState('');
   const [userRegEmail, setUserRegEmail] = useState('');
+  const [userRegPhone, setUserRegPhone] = useState('');
   const [userRegPassword, setUserRegPassword] = useState('');
   const [userRegSubmitting, setUserRegSubmitting] = useState(false);
   const [userRegSuccess, setUserRegSuccess] = useState(false);
   const [userRegError, setUserRegError] = useState<string | null>(null);
+
+  // Truck registration form state
+  const [truckRegNumber, setTruckRegNumber] = useState('');
+  const [truckRegChasis, setTruckRegChasis] = useState('');
+  const [truckRegOwnerNic, setTruckRegOwnerNic] = useState('');
+  const [truckRegCapacity, setTruckRegCapacity] = useState('10');
+  const [truckRegSubmitting, setTruckRegSubmitting] = useState(false);
+  const [truckRegSuccess, setTruckRegSuccess] = useState(false);
+  const [truckRegError, setTruckRegError] = useState<string | null>(null);
+
+  // Validation errors states
+  const [regErrors, setRegErrors] = useState<Record<string, string>>({});
+  const [userRegErrors, setUserRegErrors] = useState<Record<string, string>>({});
+  const [truckRegErrors, setTruckRegErrors] = useState<Record<string, string>>({});
 
   // Separated lists filter states for Dashboard
   const [activeTypeTab, setActiveTypeTab] = useState<'all' | 'mine' | 'hardware'>('all');
@@ -505,6 +520,17 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('gsmb_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedPermitForPdf(null);
+        setActiveRecordId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const deleteAuditLog = useCallback((id: string) => {
     setAuditLogs(prev => prev.filter(log => log.id !== id));
@@ -1132,14 +1158,29 @@ export default function App() {
   // Handle registering a new administrative node (Mine/Hardware store)
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regName.trim() || !regId.trim() || !regUserNic.trim()) {
-      setRegError('All fields, including Owner NIC, are required.');
+    
+    const errors: Record<string, string> = {};
+    if (!regId.trim()) errors.regId = 'Location ID is required.';
+    else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(regId.trim())) {
+      errors.regId = 'Must be a valid UUID format (8-4-4-4-12 characters).';
+    }
+    if (!regName.trim()) errors.regName = 'Site Name is required.';
+    if (!regUserNic.trim()) errors.regUserNic = "Owner's NIC is required.";
+    if (!regInventory.trim()) errors.regInventory = 'Current Stock is required.';
+    if (!regMaxCapacity.trim()) errors.regMaxCapacity = 'Maximum Capacity is required.';
+    if (!regLat.trim()) errors.regLat = 'Latitude is required.';
+    if (!regLng.trim()) errors.regLng = 'Longitude is required.';
+
+    setRegErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setRegError('Please correct the validation errors below.');
       return;
     }
 
     setRegSubmitting(true);
     setRegError(null);
     setRegSuccess(false);
+    setRegErrors({});
 
     try {
       // Find the user by NIC
@@ -1580,6 +1621,91 @@ export default function App() {
       </div>
     );
   };
+
+  const renderDashboardSkeleton = () => {
+    const pulseBg = theme === 'light' ? 'bg-neutral-200' : 'bg-neutral-800/60';
+    const cardBg = theme === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800';
+    const subPulseBg = theme === 'light' ? 'bg-neutral-100' : 'bg-neutral-950/50';
+
+    return (
+      <div className="flex flex-col gap-6 w-full animate-fadeIn">
+        {/* Hero Banner Skeleton */}
+        <div className={`w-full h-[280px] rounded-[32px] p-8 flex flex-col justify-between relative overflow-hidden border ${cardBg}`}>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-neutral-150/10 to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }}></div>
+          <div className="flex flex-col gap-3 max-w-2xl mt-6">
+            <div className={`h-8 w-2/3 rounded-xl animate-pulse ${pulseBg}`}></div>
+            <div className={`h-4 w-1/2 rounded-lg animate-pulse ${pulseBg}`}></div>
+          </div>
+          <div className="flex justify-end items-end">
+            <div className={`h-16 w-44 rounded-2xl animate-pulse ${pulseBg}`}></div>
+          </div>
+        </div>
+
+        {/* Metrics Grid Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className={`h-[160px] rounded-[28px] p-6 flex flex-col justify-between border ${cardBg}`}>
+              <div className="flex justify-between items-start">
+                <div className={`h-4 w-28 rounded-lg animate-pulse ${pulseBg}`}></div>
+                <div className={`h-10 w-10 rounded-xl animate-pulse ${pulseBg}`}></div>
+              </div>
+              <div className={`h-12 w-20 rounded-2xl animate-pulse ${pulseBg}`}></div>
+              <div className={`h-3.5 w-36 rounded-md animate-pulse ${pulseBg}`}></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Map & Chart Section Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Map Area */}
+          <div className={`lg:col-span-8 p-6 sm:p-8 rounded-[32px] h-[580px] border flex flex-col gap-6 ${cardBg}`}>
+            <div className="flex justify-between items-center">
+              <div className="flex flex-col gap-2">
+                <div className={`h-3 w-28 rounded-md animate-pulse ${pulseBg}`}></div>
+                <div className={`h-6 w-56 rounded-lg animate-pulse ${pulseBg}`}></div>
+              </div>
+              <div className={`h-8 w-44 rounded-xl animate-pulse ${pulseBg}`}></div>
+            </div>
+            <div className={`flex-1 w-full rounded-2xl animate-pulse ${subPulseBg} border ${theme === 'light' ? 'border-neutral-200' : 'border-neutral-800'}`}></div>
+          </div>
+
+          {/* Chart Area */}
+          <div className={`lg:col-span-4 p-6 sm:p-8 rounded-[32px] h-[580px] border flex flex-col gap-6 ${cardBg}`}>
+            <div className="flex flex-col gap-2">
+              <div className={`h-3 w-28 rounded-md animate-pulse ${pulseBg}`}></div>
+              <div className={`h-6 w-44 rounded-lg animate-pulse ${pulseBg}`}></div>
+            </div>
+            <div className={`flex-1 w-full rounded-2xl animate-pulse ${subPulseBg} border ${theme === 'light' ? 'border-neutral-200' : 'border-neutral-800'}`}></div>
+          </div>
+        </div>
+
+        {/* Table & Compliance Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className={`lg:col-span-2 p-6 sm:p-8 rounded-[32px] border flex flex-col gap-4 ${cardBg}`}>
+            <div className={`h-6 w-44 rounded-lg animate-pulse ${pulseBg}`}></div>
+            <div className="flex flex-col gap-3 mt-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex justify-between items-center py-3 border-b border-neutral-100 dark:border-neutral-800/40">
+                  <div className="flex flex-col gap-2 w-1/3">
+                    <div className={`h-4 w-28 rounded-md animate-pulse ${pulseBg}`}></div>
+                    <div className={`h-3 w-20 rounded-md animate-pulse ${pulseBg}`}></div>
+                  </div>
+                  <div className={`h-4 w-24 rounded-md animate-pulse ${pulseBg}`}></div>
+                  <div className={`h-5 w-16 rounded-full animate-pulse ${pulseBg}`}></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className={`p-6 sm:p-8 rounded-[32px] border flex flex-col gap-4 ${cardBg}`}>
+            <div className={`h-6 w-36 rounded-lg animate-pulse ${pulseBg}`}></div>
+            <div className={`flex-1 w-full rounded-2xl animate-pulse ${subPulseBg} border ${theme === 'light' ? 'border-neutral-200' : 'border-neutral-800'}`}></div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderDashboard = () => {
     return (
       <div className="flex flex-col gap-6 w-full">
@@ -1822,6 +1948,7 @@ export default function App() {
                   setActiveRecordId(id);
                 }}
                 theme={theme}
+                dbUsers={dbUsers}
               />
             </div>
             <p className="text-[11px] text-neutral-500 text-center italic mt-1">
@@ -3052,7 +3179,7 @@ export default function App() {
             </div>
           )}
 
-          <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-5">
+          <form noValidate onSubmit={handleRegisterSubmit} className="flex flex-col gap-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Node ID */}
               <div className="flex flex-col gap-1.5">
@@ -3063,12 +3190,19 @@ export default function App() {
                   placeholder="e.g. 1d9a8d96-6f43-4e67-b74f-f3d0f9e8f08c"
                   value={regId}
                   onChange={(e) => setRegId(e.target.value.toUpperCase())}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${theme === 'light'
-                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                    }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${
+                    regErrors.regId
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
                 />
-                <span className={`text-[10px] ${theme === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>Unique UUID identifier for database lookups.</span>
+                {regErrors.regId ? (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1 block">{regErrors.regId}</span>
+                ) : (
+                  <span className={`text-[10px] ${theme === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>Unique UUID identifier for database lookups.</span>
+                )}
               </div>
 
               {/* Site Type */}
@@ -3120,11 +3254,17 @@ export default function App() {
                 placeholder="e.g. Anuradhapura Aggregate Quarry"
                 value={regName}
                 onChange={(e) => setRegName(e.target.value)}
-                className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${theme === 'light'
-                  ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                  : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                  regErrors.regName
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                }`}
               />
+              {regErrors.regName && (
+                <span className="text-[10px] text-rose-500 font-semibold mt-1">{regErrors.regName}</span>
+              )}
             </div>
 
             {/* Owner's NIC */}
@@ -3136,12 +3276,19 @@ export default function App() {
                 placeholder="e.g. 981234567V or 199812345678"
                 value={regUserNic}
                 onChange={(e) => setRegUserNic(e.target.value)}
-                className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${theme === 'light'
-                  ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                  : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                  regErrors.regUserNic
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                }`}
               />
-              <span className={`text-[10px] ${theme === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>Must match a registered user account NIC.</span>
+              {regErrors.regUserNic ? (
+                <span className="text-[10px] text-rose-500 font-semibold mt-1 block">{regErrors.regUserNic}</span>
+              ) : (
+                <span className={`text-[10px] ${theme === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>Must match a registered user account NIC.</span>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3154,11 +3301,17 @@ export default function App() {
                   min="0"
                   value={regInventory}
                   onChange={(e) => setRegInventory(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${theme === 'light'
-                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                    }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${
+                    regErrors.regInventory
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
                 />
+                {regErrors.regInventory && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{regErrors.regInventory}</span>
+                )}
               </div>
 
               {/* Max Capacity */}
@@ -3170,14 +3323,21 @@ export default function App() {
                   min="1"
                   value={regMaxCapacity}
                   onChange={(e) => setRegMaxCapacity(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${theme === 'light'
-                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                    }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${
+                    regErrors.regMaxCapacity
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
                 />
-                <span className={`text-[10px] ${theme === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>
-                  {regType === 'MINE' ? 'Statutory default is 100 m³' : 'Statutory default is 20 m³'}
-                </span>
+                {regErrors.regMaxCapacity ? (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1 block">{regErrors.regMaxCapacity}</span>
+                ) : (
+                  <span className={`text-[10px] ${theme === 'light' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                    {regType === 'MINE' ? 'Statutory default is 100 m³' : 'Statutory default is 20 m³'}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -3221,8 +3381,17 @@ export default function App() {
                     type="text"
                     value={regLat}
                     onChange={(e) => setRegLat(e.target.value)}
-                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200'}`}
+                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${
+                      regErrors.regLat
+                        ? 'border-rose-500 bg-rose-500/5 focus:ring-1 focus:ring-rose-500 text-rose-900 dark:text-rose-200'
+                        : theme === 'light'
+                          ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
+                          : 'bg-neutral-950 border-neutral-800 text-neutral-200'
+                    }`}
                   />
+                  {regErrors.regLat && (
+                    <span className="text-[9px] text-rose-500 font-semibold mt-0.5">{regErrors.regLat}</span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[9px] font-bold text-neutral-500 uppercase">Longitude</label>
@@ -3231,8 +3400,17 @@ export default function App() {
                     type="text"
                     value={regLng}
                     onChange={(e) => setRegLng(e.target.value)}
-                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200'}`}
+                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${
+                      regErrors.regLng
+                        ? 'border-rose-500 bg-rose-500/5 focus:ring-1 focus:ring-rose-500 text-rose-900 dark:text-rose-200'
+                        : theme === 'light'
+                          ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
+                          : 'bg-neutral-950 border-neutral-800 text-neutral-200'
+                    }`}
                   />
+                  {regErrors.regLng && (
+                    <span className="text-[9px] text-rose-500 font-semibold mt-0.5">{regErrors.regLng}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -3278,7 +3456,7 @@ export default function App() {
               </button>
             </div>
           </form>
-          <div className="absolute right-[-40px] bottom-[-40px] w-64 h-64 bg-indigo-500/[0.03] rounded-full blur-3xl"></div>
+          <div className="absolute right-[-40px] bottom-[-40px] w-64 h-64 bg-indigo-500/[0.03] rounded-full blur-3xl pointer-events-none"></div>
         </div>
 
         {/* Guide Card Column */}
@@ -3704,14 +3882,25 @@ export default function App() {
 
   const handleUserRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userRegName.trim() || !userRegNic.trim() || !userRegEmail.trim() || !userRegPassword.trim()) {
-      setUserRegError('All fields are required.');
+    
+    const errors: Record<string, string> = {};
+    if (!userRegName.trim()) errors.userRegName = 'Full Name is required.';
+    if (!userRegNic.trim()) errors.userRegNic = 'NIC is required.';
+    if (!userRegEmail.trim()) errors.userRegEmail = 'Email Address is required.';
+    if (!userRegPhone.trim()) errors.userRegPhone = 'Phone Number is required.';
+    if (!userRegPassword.trim()) errors.userRegPassword = 'Temporary Password is required.';
+    else if (userRegPassword.length < 6) errors.userRegPassword = 'Password must be at least 6 characters.';
+
+    setUserRegErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setUserRegError('Please correct the validation errors below.');
       return;
     }
 
     setUserRegSubmitting(true);
     setUserRegError(null);
     setUserRegSuccess(false);
+    setUserRegErrors({});
 
     try {
       // 1. Check if NIC already exists in dbUsers to prevent duplicates
@@ -3739,6 +3928,8 @@ export default function App() {
               data: {
                 full_name: userRegName.trim(),
                 nic: userRegNic.trim(),
+                phone: userRegPhone.trim(),
+                phone_number: userRegPhone.trim(),
                 role: 'USER'
               }
             }
@@ -3769,6 +3960,7 @@ export default function App() {
           name: userRegName.trim(),
           nic: userRegNic.trim(),
           email: userRegEmail.trim(),
+          phone_number: userRegPhone.trim(),
           password_hashed: userRegPassword,
           profile_picture: ''
         })
@@ -3791,6 +3983,7 @@ export default function App() {
       setUserRegName('');
       setUserRegNic('');
       setUserRegEmail('');
+      setUserRegPhone('');
       setUserRegPassword('');
       // Reload dbUsers
       await loadData();
@@ -3799,6 +3992,90 @@ export default function App() {
       setUserRegError(err.message || 'User registration transaction failed.');
     } finally {
       setUserRegSubmitting(false);
+    }
+  };
+
+  const handleTruckRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const errors: Record<string, string> = {};
+    if (!truckRegNumber.trim()) errors.truckRegNumber = 'Truck Plate Number is required.';
+    if (!truckRegChasis.trim()) errors.truckRegChasis = 'Chassis Number is required.';
+    if (!truckRegOwnerNic.trim()) errors.truckRegOwnerNic = "Owner's NIC is required.";
+    if (!truckRegCapacity.trim()) errors.truckRegCapacity = 'Maximum Capacity is required.';
+
+    setTruckRegErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setTruckRegError('Please correct the validation errors below.');
+      return;
+    }
+
+    const plateUpper = truckRegNumber.trim().toUpperCase();
+
+    setTruckRegSubmitting(true);
+    setTruckRegError(null);
+    setTruckRegSuccess(false);
+    setTruckRegErrors({});
+
+    try {
+      // Find the user with matching NIC
+      const owner = dbUsers.find(
+        u => String(u.nic || u.nic_number || '').trim().toLowerCase() === truckRegOwnerNic.trim().toLowerCase()
+      );
+      if (!owner) {
+        throw new Error(`No registered user found with NIC "${truckRegOwnerNic}". Please register the owner account first.`);
+      }
+
+      // Check if truck plate already exists
+      const isPlateDuplicate = rawTrucks.some(
+        t => String(t.number_plate || '').trim().toUpperCase() === plateUpper
+      );
+      if (isPlateDuplicate) {
+        throw new Error(`A truck with plate number "${plateUpper}" is already registered.`);
+      }
+
+      // Insert truck into public.trucks
+      const restResponse = await fetch(`${SUPABASE_URL}/rest/v1/trucks`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          number_plate: plateUpper,
+          chassis_number: truckRegChasis.trim(),
+          capacity: Number(truckRegCapacity),
+          user_id: owner.user_id
+        })
+      });
+
+      if (!restResponse.ok) {
+        const restErrText = await restResponse.text();
+        let parsedMessage = '';
+        try {
+          const parsed = JSON.parse(restErrText);
+          parsedMessage = parsed.message || parsed.details || restErrText;
+        } catch {
+          parsedMessage = restErrText;
+        }
+        throw new Error(parsedMessage || `Supabase database insertion returned status ${restResponse.status}`);
+      }
+
+      triggerAuditLog('REGISTER TRUCK', `Registered truck '${plateUpper}' (Owner NIC: ${truckRegOwnerNic.trim()})`);
+      setTruckRegSuccess(true);
+      setTruckRegNumber('');
+      setTruckRegChasis('');
+      setTruckRegOwnerNic('');
+      setTruckRegCapacity('10');
+      // Reload database
+      await loadData();
+    } catch (err: any) {
+      console.error('Failed to register truck:', err);
+      setTruckRegError(err.message || 'Truck registration failed.');
+    } finally {
+      setTruckRegSubmitting(false);
     }
   };
 
@@ -3847,7 +4124,7 @@ export default function App() {
             </div>
           )}
 
-          <form onSubmit={handleUserRegisterSubmit} className="flex flex-col gap-5">
+          <form noValidate onSubmit={handleUserRegisterSubmit} className="flex flex-col gap-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Full Name */}
               <div className="flex flex-col gap-1.5">
@@ -3858,11 +4135,17 @@ export default function App() {
                   placeholder="e.g. Priyantha Bandara"
                   value={userRegName}
                   onChange={(e) => setUserRegName(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${theme === 'light'
-                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                    }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                    userRegErrors.userRegName
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
                 />
+                {userRegErrors.userRegName && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegName}</span>
+                )}
               </div>
 
               {/* NIC */}
@@ -3874,11 +4157,17 @@ export default function App() {
                   placeholder="e.g. 981234567V or 199812345678"
                   value={userRegNic}
                   onChange={(e) => setUserRegNic(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${theme === 'light'
-                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                    }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                    userRegErrors.userRegNic
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
                 />
+                {userRegErrors.userRegNic && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegNic}</span>
+                )}
               </div>
             </div>
 
@@ -3892,13 +4181,43 @@ export default function App() {
                   placeholder="e.g. operator@geotrust.com"
                   value={userRegEmail}
                   onChange={(e) => setUserRegEmail(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${theme === 'light'
-                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                    }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                    userRegErrors.userRegEmail
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
                 />
+                {userRegErrors.userRegEmail && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegEmail}</span>
+                )}
               </div>
 
+              {/* Phone Number */}
+              <div className="flex flex-col gap-1.5">
+                <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Phone Number</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="e.g. +94771234567"
+                  value={userRegPhone}
+                  onChange={(e) => setUserRegPhone(e.target.value)}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                    userRegErrors.userRegPhone
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
+                />
+                {userRegErrors.userRegPhone && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegPhone}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Password */}
               <div className="flex flex-col gap-1.5">
                 <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Temporary Password</label>
@@ -3908,11 +4227,17 @@ export default function App() {
                   placeholder="Minimum 6 characters"
                   value={userRegPassword}
                   onChange={(e) => setUserRegPassword(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${theme === 'light'
-                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                    }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${
+                    userRegErrors.userRegPassword
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
                 />
+                {userRegErrors.userRegPassword && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegPassword}</span>
+                )}
               </div>
             </div>
 
@@ -3941,6 +4266,178 @@ export default function App() {
                   </>
                 ) : (
                   'Register User'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTrucks = () => {
+    return (
+      <div className="flex flex-col items-center w-full animate-fadeIn">
+        {/* Form Section */}
+        <div className={`w-full max-w-4xl p-6 sm:p-8 rounded-3xl shadow-2xl flex flex-col gap-6 relative overflow-hidden border user-reg-card transition-all duration-300 ${theme === 'light'
+          ? 'bg-white border-neutral-200 shadow-md'
+          : 'bg-neutral-900 border-neutral-800 shadow-2xl'
+          }`}>
+          <div>
+            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase select-none mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              Fleet Management
+            </div>
+            <h1 className={`text-3xl font-black mt-4 tracking-tight transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>Register New Truck</h1>
+            <p className={`text-sm max-w-xl mt-2 leading-relaxed transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'}`}>
+              Enroll a new logistics vehicle into the active mineral transport network. Plates must follow standard regional formats.
+            </p>
+          </div>
+
+          {truckRegSuccess && (
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className={`p-4 rounded-2xl flex items-start gap-3 border ${theme === 'light' ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/20'}`}
+            >
+              <CheckCircle2 className={`w-5 h-5 shrink-0 mt-0.5 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`} />
+              <div>
+                <strong className={`text-sm font-bold block ${theme === 'light' ? 'text-emerald-900' : 'text-white'}`}>Truck registered successfully!</strong>
+                <span className={`text-xs ${theme === 'light' ? 'text-emerald-800' : 'text-emerald-300/80'}`}>
+                  The vehicle has been successfully synced to the central logistics fleet ledger and is ready to be assigned permits.
+                </span>
+              </div>
+            </motion.div>
+          )}
+
+          {truckRegError && (
+            <div className={`p-4 rounded-2xl flex items-start gap-3 border ${theme === 'light' ? 'bg-rose-50 border-rose-200' : 'bg-rose-500/10 border-rose-500/20'}`}>
+              <XCircle className={`w-5 h-5 shrink-0 mt-0.5 ${theme === 'light' ? 'text-rose-600' : 'text-rose-400'}`} />
+              <div>
+                <strong className={`text-sm font-bold block ${theme === 'light' ? 'text-rose-900' : 'text-white'}`}>Truck Registration Failed</strong>
+                <span className={`text-xs ${theme === 'light' ? 'text-rose-800' : 'text-rose-300/80'}`}>{truckRegError}</span>
+              </div>
+            </div>
+          )}
+
+          <form noValidate onSubmit={handleTruckRegisterSubmit} className="flex flex-col gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Truck Number (Plate Number) */}
+              <div className="flex flex-col gap-1.5">
+                <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Truck Plate Number</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="e.g. CP/NWP LA - 1234"
+                  value={truckRegNumber}
+                  onChange={(e) => setTruckRegNumber(e.target.value)}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                    truckRegErrors.truckRegNumber
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
+                  }`}
+                />
+                {truckRegErrors.truckRegNumber && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{truckRegErrors.truckRegNumber}</span>
+                )}
+              </div>
+
+              {/* Chasis Number */}
+              <div className="flex flex-col gap-1.5">
+                <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Chassis Number</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="e.g. MBH382D9S8382928A"
+                  value={truckRegChasis}
+                  onChange={(e) => setTruckRegChasis(e.target.value)}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                    truckRegErrors.truckRegChasis
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
+                  }`}
+                />
+                {truckRegErrors.truckRegChasis && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{truckRegErrors.truckRegChasis}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Owner's NIC */}
+              <div className="flex flex-col gap-1.5">
+                <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Owner's NIC</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="e.g. 981234567V or 199812345678"
+                  value={truckRegOwnerNic}
+                  onChange={(e) => setTruckRegOwnerNic(e.target.value)}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                    truckRegErrors.truckRegOwnerNic
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
+                  }`}
+                />
+                {truckRegErrors.truckRegOwnerNic && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{truckRegErrors.truckRegOwnerNic}</span>
+                )}
+              </div>
+
+              {/* Maximum Capacity */}
+              <div className="flex flex-col gap-1.5">
+                <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Maximum Capacity (m³)</label>
+                <input
+                  required
+                  type="number"
+                  step="0.1"
+                  placeholder="e.g. 10.0"
+                  value={truckRegCapacity}
+                  onChange={(e) => setTruckRegCapacity(e.target.value)}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
+                    truckRegErrors.truckRegCapacity
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
+                  }`}
+                />
+                {truckRegErrors.truckRegCapacity && (
+                  <span className="text-[10px] text-rose-500 font-semibold mt-1">{truckRegErrors.truckRegCapacity}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Register action */}
+            <div className="flex justify-end gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => setActivePage('dashboard')}
+                className={`px-5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${theme === 'light'
+                  ? 'bg-white hover:bg-neutral-100 text-neutral-700 border-neutral-200'
+                  : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 hover:text-white border-neutral-800 hover:border-neutral-700'
+                  }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={truckRegSubmitting}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-indigo-600/25 flex items-center gap-1.5"
+              >
+                {truckRegSubmitting ? (
+                  <>
+                    <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  'Register Truck'
                 )}
               </button>
             </div>
@@ -3980,32 +4477,30 @@ export default function App() {
               <User className="w-3.5 h-3.5" />
               Register User
             </button>
+            <button
+              onClick={() => setRegisterTab('truck')}
+              className={`py-2 px-6 rounded-xl text-xs font-bold uppercase transition-all flex items-center gap-2 cursor-pointer ${registerTab === 'truck'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                : theme === 'light'
+                  ? 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+                }`}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              Register Truck
+            </button>
           </div>
         </div>
 
         {/* Render Active Subsection */}
-        {registerTab === 'site' ? renderRegister() : renderUsers()}
+        {registerTab === 'site' && renderRegister()}
+        {registerTab === 'user' && renderUsers()}
+        {registerTab === 'truck' && renderTrucks()}
       </div>
     );
   };
 
-  if (authLoading && !authToken) {
-    return (
-      <div className={`min-h-screen flex flex-col items-center justify-center gap-4 relative overflow-hidden font-sans ${theme === 'light' ? 'bg-white' : 'bg-neutral-950'}`}>
-        <div className="fixed inset-0 pointer-events-none z-0">
-          <div className="absolute inset-0 bg-[#0a0a0a]"></div>
-          <div
-            className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:44px_44px]"
-            style={{ maskImage: 'radial-gradient(ellipse at center, black, transparent 95%)' }}
-          ></div>
-        </div>
-        <div className="relative z-10 flex flex-col items-center justify-center gap-3">
-          <Activity className="w-10 h-10 text-indigo-500 animate-pulse" />
-          <span className="text-[10px] text-neutral-400 font-mono tracking-widest">VERIFYING CREDENTIAL TELEMETRY...</span>
-        </div>
-      </div>
-    );
-  }
+
 
   if (!authToken || !authUser) {
     return renderAuth();
@@ -4128,6 +4623,12 @@ export default function App() {
                 theme={theme}
                 permits={allRawPermits}
                 onNewAlertTriggered={(msg) => triggerAuditLog('TELEMETRY ALERT', msg)}
+                onSelectPermit={(permitId) => {
+                  const match = allRawPermits.find(p => p.id === permitId);
+                  if (match) {
+                    setSelectedPermitForPdf(match);
+                  }
+                }}
               />
 
               {/* Theme Toggle Button */}
@@ -4244,18 +4745,31 @@ export default function App() {
         {/* MAIN ROUTED CONTENT */}
         <main className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6 min-h-[70vh]">
           <AnimatePresence mode="wait">
-            {activePage === 'dashboard' && (
+            {loading ? (
               <motion.div
-                key="dashboard"
+                key="dashboard-skeleton"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.28, ease: "easeInOut" }}
-                className="flex flex-col gap-6 w-full"
+                transition={{ duration: 0.2 }}
+                className="w-full"
               >
-                {renderDashboard()}
+                {renderDashboardSkeleton()}
               </motion.div>
-            )}
+            ) : (
+              <>
+                {activePage === 'dashboard' && (
+                  <motion.div
+                    key="dashboard"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    className="flex flex-col gap-6 w-full"
+                  >
+                    {renderDashboard()}
+                  </motion.div>
+                )}
 
             {/* ==================== 2. DATA EXPLORER ==================== */}
             {activePage === 'data-explorer' && (
@@ -4344,6 +4858,8 @@ export default function App() {
                 />
               </motion.div>
             )}
+              </>
+            )}
           </AnimatePresence>
         </main>
       </div>
@@ -4374,6 +4890,13 @@ export default function App() {
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .animate-shimmer {
+          animation: shimmer 1.8s infinite linear;
+        }
         @media (max-width: 1100px) {
           .map-row { grid-template-columns: 1fr !important; }
         }
