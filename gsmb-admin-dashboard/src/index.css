@@ -482,8 +482,8 @@ body:not(.theme-light) .modern-grid-card:hover {
 }
 
 body:not(.theme-light) header.border-b {
-  background-color: rgba(18, 18, 20, 0.75) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(10, 10, 12, 0.98) !important;
+  border-color: rgba(63, 63, 70, 0.4) !important;
 }
 
 body:not(.theme-light) input,

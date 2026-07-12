@@ -4912,9 +4912,13 @@ export default function App() {
                 <ShieldAlert className="w-4 h-4 text-white" />
               </div>
               <div>
-                <span className={`text-sm font-black tracking-wider uppercase transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-neutral-100'
-                  }`}>GSMB GeoTrust</span>
-                <p className="text-[9px] text-indigo-400 font-mono tracking-widest uppercase font-bold">Oversight Portal</p>
+                <span
+                  className="text-sm font-black tracking-wider uppercase transition-colors"
+                  style={{ color: '#ffffff' }}
+                >
+                  GeoTrust
+                </span>
+                <p className="text-[9px] text-indigo-500 dark:text-indigo-400 font-mono tracking-widest uppercase font-bold">Oversight Portal</p>
               </div>
             </div>
 
@@ -5100,10 +5104,10 @@ export default function App() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1 text-left">
-                            <h4 className={`text-xs font-black truncate ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>
+                            <h4 className="text-xs font-black truncate" style={{ color: theme === 'light' ? '#111827' : '#ffffff' }}>
                               {profileName || fbName || 'Administrator'}
                             </h4>
-                            <p className={`text-[10px] truncate ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                            <p className="text-[10px] truncate" style={{ color: theme === 'light' ? '#4b5563' : '#a3a3a3' }}>
                               {fbEmail || 'admin@geotrust.gov.lk'}
                             </p>
                           </div>
@@ -5118,12 +5122,12 @@ export default function App() {
                               setActivePage('profile');
                             }}
                             className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2.5 ${theme === 'light'
-                              ? 'hover:bg-neutral-50 text-neutral-700 hover:text-indigo-600'
-                              : 'hover:bg-neutral-800 text-neutral-300 hover:text-indigo-400'
+                              ? 'hover:bg-neutral-50 hover:text-indigo-600'
+                              : 'hover:bg-neutral-800 hover:text-indigo-400'
                               }`}
                           >
-                            <User className="w-4 h-4 shrink-0" />
-                            Profile Settings
+                            <User className="w-4 h-4 shrink-0" style={{ color: theme === 'light' ? '#111827' : '#d4d4d4' }} />
+                            <span style={{ color: theme === 'light' ? '#111827' : '#d4d4d4' }}>Profile Settings</span>
                           </button>
                           
                           <button
@@ -5132,12 +5136,12 @@ export default function App() {
                               handleLogout();
                             }}
                             className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2.5 ${theme === 'light'
-                              ? 'hover:bg-rose-50 text-rose-600'
-                              : 'hover:bg-rose-950/20 text-rose-400'
+                              ? 'hover:bg-rose-50'
+                              : 'hover:bg-rose-950/20'
                               }`}
                           >
-                            <LogOut className="w-4 h-4 shrink-0" />
-                            Sign Out
+                            <LogOut className="w-4 h-4 shrink-0" style={{ color: '#ef4444' }} />
+                            <span style={{ color: '#ef4444' }}>Sign Out</span>
                           </button>
                         </div>
                       </motion.div>
