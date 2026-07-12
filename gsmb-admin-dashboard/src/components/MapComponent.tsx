@@ -100,8 +100,8 @@ export default function MapComponent({
         record.risk === 'high'
           ? '#fb7185' // rose
           : record.risk === 'medium'
-          ? '#fbbf24' // amber
-          : '#34d399'; // cyan/emerald
+            ? '#fbbf24' // amber
+            : '#34d399'; // cyan/emerald
 
       const isHighRisk = record.risk === 'high';
       const dotSize = isHighRisk ? 13 : 10;
@@ -360,8 +360,8 @@ export default function MapComponent({
       }`}>
       {/* Absolute overlay for styling */}
       <div className={`absolute top-4 left-4 z-[1000] backdrop-blur-md px-3.5 py-1.5 rounded-full border text-[10px] tracking-widest uppercase font-black flex items-center gap-1.5 shadow-lg transition-all duration-300 ${theme === 'light'
-          ? 'bg-white/90 border-neutral-200 text-indigo-600'
-          : 'bg-neutral-900/90 border-neutral-800 text-indigo-400'
+        ? 'bg-white/90 border-neutral-200 text-indigo-600'
+        : 'bg-neutral-900/90 border-neutral-800 text-indigo-400'
         }`}>
         <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
         LIVE OVERVIEW MAP
@@ -372,7 +372,7 @@ export default function MapComponent({
         {/* Map Type Toggle */}
         <button
           onClick={() => setMapType(prev => prev === 'streets' ? 'satellite' : 'streets')}
-          className={`cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${theme === 'light'
+          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${theme === 'light'
               ? 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 shadow-md'
               : 'bg-neutral-900 border-neutral-800 text-white hover:bg-neutral-800 shadow-2xl'
             }`}
@@ -396,7 +396,7 @@ export default function MapComponent({
         {/* Whole Country View */}
         <button
           onClick={handleResetView}
-          className={`cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${theme === 'light'
+          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${theme === 'light'
               ? 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 hover:border-neutral-300 shadow-md'
               : 'bg-neutral-900 border-neutral-800 text-white hover:bg-neutral-800 hover:border-neutral-700 shadow-2xl'
             }`}

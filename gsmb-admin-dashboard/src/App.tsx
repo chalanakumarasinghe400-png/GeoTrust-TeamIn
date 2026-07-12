@@ -40,6 +40,7 @@ import {
   Eye,
   Copy,
   CheckCheck,
+  LogOut,
 } from 'lucide-react';
 import MapComponent from './components/MapComponent';
 import AlertsPanel from './components/AlertsPanel';
@@ -1202,6 +1203,54 @@ export default function App() {
     });
   }, [allRawPermits, registrySearchQuery, registryStatusFilter]);
 
+  // Derived active telemetry alerts from raw database permits dataset
+  const realAlerts = useMemo<any[]>(() => {
+    const list: any[] = [];
+    allRawPermits.forEach((permit) => {
+      // 1. Overload Check
+      if (permit.volumeCubes > 5) {
+        list.push({
+          id: `alt-ov-${permit.id.slice(0, 4)}`,
+          timestamp: permit.transportDate,
+          truckNumber: permit.truckNumber,
+          location: permit.originLocationName || 'Registered Mining Site',
+          type: 'overload',
+          status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+          message: `Vehicle ${permit.truckNumber} overloaded: ${permit.volumeCubes} m³ loaded, standard limit 5m³.`,
+          read: permit.status === 'COMPLETED'
+        });
+      }
+      // 2. Unauthorized Route (GPS mismatch) Check
+      if (permit.gpsMismatch) {
+        list.push({
+          id: `alt-rt-${permit.id.slice(0, 4)}`,
+          timestamp: permit.transportDate,
+          truckNumber: permit.truckNumber,
+          location: permit.originLocationName || 'Transit Corridor',
+          type: 'unauthorized_route',
+          status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+          message: `Unauthorized route deviation flagged for vehicle ${permit.truckNumber} on permit ${permit.permitCode}.`,
+          read: permit.status === 'COMPLETED'
+        });
+      }
+      // 3. GPS Lost (Missing coordinates) Check
+      if (permit.status !== 'CANCELLED' && (!permit.unloadLatitude || !permit.unloadLongitude)) {
+        list.push({
+          id: `alt-gps-${permit.id.slice(0, 4)}`,
+          timestamp: permit.transportDate,
+          truckNumber: permit.truckNumber,
+          location: permit.originLocationName || 'Offline Corridor',
+          type: 'gps_lost',
+          status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+          message: `GPS signal lost: vehicle ${permit.truckNumber} destination coordinates missing.`,
+          read: permit.status === 'COMPLETED'
+        });
+      }
+    });
+    // Sort: newest alert first
+    return list.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }, [allRawPermits]);
+
   // Handle registering a new administrative node (Mine/Hardware store)
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1785,11 +1834,11 @@ export default function App() {
               <div className="absolute inset-0 backdrop-blur-[8px]" style={{ maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 60%, rgba(0,0,0,1) 85%)', WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 60%, rgba(0,0,0,1) 85%)' }} />
               <div className="absolute inset-0 backdrop-blur-[16px]" style={{ maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 80%, rgba(0,0,0,1) 100%)', WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 80%, rgba(0,0,0,1) 100%)' }} />
               {/* Soft color blending layer */}
-              <div 
+              <div
                 className="absolute inset-0"
                 style={{
-                  background: theme === 'light' 
-                    ? 'linear-gradient(to bottom, rgba(249,250,251,0) 0%, rgba(249,250,251,0.2) 30%, rgba(249,250,251,0.6) 60%, rgba(249,250,251,0.9) 85%, rgba(249,250,251,1) 100%)' 
+                  background: theme === 'light'
+                    ? 'linear-gradient(to bottom, rgba(249,250,251,0) 0%, rgba(249,250,251,0.2) 30%, rgba(249,250,251,0.6) 60%, rgba(249,250,251,0.9) 85%, rgba(249,250,251,1) 100%)'
                     : 'linear-gradient(to bottom, rgba(10,10,10,0) 0%, rgba(10,10,10,0.2) 30%, rgba(10,10,10,0.6) 60%, rgba(10,10,10,0.9) 85%, rgba(10,10,10,1) 100%)'
                 }}
               />
@@ -2359,7 +2408,7 @@ export default function App() {
       <button
         onClick={e => { e.stopPropagation(); handleCopyId(id); }}
         title="Copy full ID"
-        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-colors shrink-0 ${copiedId === id
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xl text-[10px] font-bold border cursor-pointer transition-colors shrink-0 ${copiedId === id
           ? th === 'light' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
           : th === 'light' ? 'border-neutral-200 bg-neutral-50 text-neutral-500 hover:bg-neutral-100' : 'border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
           }`}
@@ -2479,7 +2528,7 @@ export default function App() {
                             }`}>{hwCount}</span>
                         </td>
                         <td className={`${tdBase} text-center`}>
-                          <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
+                          <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
                             <Eye className="w-3 h-3" /> View
                           </button>
                         </td>
@@ -2516,7 +2565,7 @@ export default function App() {
                       <td className={tdBase}><span className="font-mono font-bold">{m.maximum_cubes ?? 'N/A'}</span> m³</td>
                       <td className={`${tdBase} text-xs font-mono`}>{m.latitude != null ? `${Number(m.latitude).toFixed(4)}, ${Number(m.longitude).toFixed(4)}` : 'N/A'}</td>
                       <td className={`${tdBase} text-center`}>
-                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'}`}>
+                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-emerald-500/25 bg-emerald-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
                           <Eye className="w-3 h-3" /> View
                         </button>
                       </td>
@@ -2552,7 +2601,7 @@ export default function App() {
                       <td className={tdBase}><span className="font-mono font-bold">{h.maximum_cubes ?? 'N/A'}</span> m³</td>
                       <td className={`${tdBase} text-xs font-mono`}>{h.latitude != null ? `${Number(h.latitude).toFixed(4)}, ${Number(h.longitude).toFixed(4)}` : 'N/A'}</td>
                       <td className={`${tdBase} text-center`}>
-                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
+                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
                           <Eye className="w-3 h-3" /> View
                         </button>
                       </td>
@@ -2581,7 +2630,7 @@ export default function App() {
                       <td className={`${tdBase} text-xs`}>{getUserNameById(t.user_id)}</td>
                       <td className={tdBase}><span className="font-mono">{t.capacity != null ? `${t.capacity} m³` : 'N/A'}</span></td>
                       <td className={`${tdBase} text-center`}>
-                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-amber-500/25 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'}`}>
+                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-amber-500/25 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'}`}>
                           <Eye className="w-3 h-3" /> View
                         </button>
                       </td>
@@ -3431,7 +3480,7 @@ export default function App() {
                       setRegLat(preset.lat);
                       setRegLng(preset.lng);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${regLat === preset.lat && regLng === preset.lng
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${regLat === preset.lat && regLng === preset.lng
                       ? 'bg-indigo-600/20 border-indigo-500 text-indigo-600 dark:text-white'
                       : theme === 'light'
                         ? 'bg-white border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
@@ -3451,12 +3500,7 @@ export default function App() {
                     type="text"
                     value={regLat}
                     onChange={(e) => setRegLat(e.target.value)}
-                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${regErrors.regLat
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-1 focus:ring-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200'
-                      }`}
+                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200'}`}
                   />
                   {regErrors.regLat && (
                     <span className="text-[9px] text-rose-500 font-semibold mt-0.5">{regErrors.regLat}</span>
@@ -3469,12 +3513,7 @@ export default function App() {
                     type="text"
                     value={regLng}
                     onChange={(e) => setRegLng(e.target.value)}
-                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${regErrors.regLng
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-1 focus:ring-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200'
-                      }`}
+                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200'}`}
                   />
                   {regErrors.regLng && (
                     <span className="text-[9px] text-rose-500 font-semibold mt-0.5">{regErrors.regLng}</span>
@@ -3833,7 +3872,7 @@ export default function App() {
                       value={nodeSearchQuery}
                       onChange={(e) => setNodeSearchQuery(e.target.value)}
                       onClick={(e) => e.stopPropagation()} // Prevent closing dropdown on input click
-                      className={`w-full rounded-lg pl-8 pr-3 py-2 text-xs focus:outline-none border ${theme === 'light'
+                      className={`w-full rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none border ${theme === 'light'
                         ? 'bg-neutral-50 border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
                         : 'bg-neutral-900 border-neutral-800 text-neutral-200 focus:ring-1 focus:ring-indigo-500'
                         }`}
@@ -3850,7 +3889,7 @@ export default function App() {
                         setIsNodeDropdownOpen(false);
                         setNodeSearchQuery('');
                       }}
-                      className={`p-2 rounded-lg text-xs cursor-pointer hover:bg-indigo-600/10 transition-colors ${!fbLocationId ? 'font-black text-indigo-500 bg-indigo-500/5' : ''}`}
+                      className={`p-2 rounded-xl text-xs cursor-pointer hover:bg-indigo-600/10 transition-colors ${!fbLocationId ? 'font-black text-indigo-500 bg-indigo-500/5' : ''}`}
                     >
                       -- Select Administrative Node (Auto-assigned if empty) --
                     </div>
@@ -3869,7 +3908,7 @@ export default function App() {
                           setIsNodeDropdownOpen(false);
                           setNodeSearchQuery('');
                         }}
-                        className={`p-2 rounded-lg text-xs cursor-pointer hover:bg-indigo-600/10 transition-colors ${fbLocationId === rec.id ? 'font-black text-indigo-500 bg-indigo-500/5' : ''}`}
+                        className={`p-2 rounded-xl text-xs cursor-pointer hover:bg-indigo-600/10 transition-colors ${fbLocationId === rec.id ? 'font-black text-indigo-500 bg-indigo-500/5' : ''}`}
                       >
                         <span className="font-bold">[{(rec.type || '').toUpperCase()}]</span> {rec.name || ''} <span className="text-neutral-500">({rec.region || ''})</span>
                       </div>
@@ -4588,115 +4627,142 @@ export default function App() {
       </div>
 
       <div className="relative z-10 w-full">
-        <header className="sticky top-0 z-[9999] w-full transition-all duration-300 border-b backdrop-blur-xl shadow-lg border-neutral-900 bg-neutral-950/95 shadow-neutral-950/20">
-          <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+        {/* Top Header Navigation */}
+        <header className={`border-b backdrop-blur-md sticky top-0 z-[9999] transition-all duration-300 ${theme === 'light' ? 'border-neutral-200 bg-white/80' : 'border-neutral-900 bg-neutral-950/80'
+          }`}>
+          <div className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
 
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActivePage('dashboard')}>
-              <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                <ShieldAlert className="w-4.5 h-4.5 text-white" />
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActivePage('dashboard')}>
+              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                <ShieldAlert className="w-4 h-4 text-white" />
               </div>
-              <div className="hidden sm:block">
-                <span className="text-sm 2xl:text-[17px] font-black tracking-wide uppercase text-white">GeoTrust</span>
-                <p className="text-[9px] 2xl:text-[10px] text-indigo-400 tracking-wider uppercase font-extrabold leading-none mt-0.5">Oversight Portal</p>
+              <div>
+                <span className={`text-sm font-black tracking-wider uppercase transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-neutral-100'
+                  }`}>GSMB GeoTrust</span>
+                <p className="text-[9px] text-indigo-400 font-mono tracking-widest uppercase font-bold">Oversight Portal</p>
               </div>
             </div>
 
             {/* Navigation links */}
-            <nav className="hidden xl:flex items-center gap-1 2xl:gap-2 text-xs 2xl:text-sm font-extrabold tracking-wide uppercase">
+            <nav className={`hidden md:flex items-center gap-2 text-[13px] font-bold uppercase transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'
+              }`}>
               <button
                 onClick={() => setActivePage('dashboard')}
-                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'dashboard'
-                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
+                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'dashboard'
+                  ? theme === 'light'
+                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                  : theme === 'light'
+                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Dashboard
               </button>
               <button
                 onClick={() => setActivePage('data-explorer')}
-                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'data-explorer'
-                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
+                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'data-explorer'
+                  ? theme === 'light'
+                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                  : theme === 'light'
+                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Data Explorer
               </button>
               <button
                 onClick={() => setActivePage('registry')}
-                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'registry'
-                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
+                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'registry'
+                  ? theme === 'light'
+                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                  : theme === 'light'
+                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Permit List
               </button>
               <button
                 onClick={() => setActivePage('new-register')}
-                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'new-register'
-                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
+                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'new-register'
+                  ? theme === 'light'
+                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                  : theme === 'light'
+                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 New Register
               </button>
               <button
                 onClick={() => setActivePage('about')}
-                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'about'
-                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
+                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'about'
+                  ? theme === 'light'
+                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                  : theme === 'light'
+                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Guidelines
               </button>
               <button
                 onClick={() => setActivePage('contact')}
-                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'contact'
-                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
+                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'contact'
+                  ? theme === 'light'
+                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                  : theme === 'light'
+                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Support & Reports
               </button>
-              <button
-                onClick={() => setActivePage('compliance')}
-                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'compliance'
-                  ? 'text-white bg-rose-600 border-rose-600 shadow-md shadow-rose-600/15'
-                  : 'text-neutral-300 border-transparent hover:text-rose-400 hover:bg-rose-900/25'
-                  }`}
-              >
-                Compliance Hub
-              </button>
             </nav>
 
-            <div className="flex items-center gap-3.5">
+            <div className="flex items-center gap-3">
               {/* Global Quick Action Buttons */}
               <button
                 onClick={() => loadData(false)}
                 disabled={loading || isSyncing}
-                className="h-11 px-4.5 disabled:opacity-50 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border bg-slate-800 hover:bg-slate-700 text-white border-slate-700 hover:border-slate-600 hover:text-indigo-400"
+                className={`px-3.5 py-2 disabled:opacity-50 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border ${theme === 'light'
+                  ? 'bg-white hover:bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-indigo-600'
+                  : 'bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-800/80 hover:border-neutral-700 hover:text-indigo-400'
+                  }`}
                 title="Refresh Data"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${loading || isSyncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh</span>
+                <span className="hidden sm:inline">Refresh Data</span>
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={filteredRecords.length === 0}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5 shadow-indigo-600/25"
+                title="Save Report"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Save Report</span>
               </button>
 
               {/* Telemetry Alert Bell Center */}
               <AlertsPanel
                 theme={theme}
-                permits={allRawPermits}
                 onNewAlertTriggered={(msg) => triggerAuditLog('TELEMETRY ALERT', msg)}
-                onSelectPermit={(permitId) => {
-                  const match = allRawPermits.find(p => p.id === permitId);
-                  if (match) {
-                    setSelectedPermitForPdf(match);
-                  }
-                }}
               />
 
               {/* Theme Toggle Button */}
               <button
                 onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                className="h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-white"
+                className={`p-2 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
+                  ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900'
+                  : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-white'
+                  }`}
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 id="theme-toggle-btn"
               >
@@ -4711,83 +4777,60 @@ export default function App() {
               {/* Sign Out Button */}
               <button
                 onClick={handleLogout}
-                className="h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-rose-400"
+                className={`p-2 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
+                  ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-rose-600'
+                  : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-rose-400'
+                  }`}
                 title="Sign Out"
               >
                 <XCircle className="w-4.5 h-4.5" />
               </button>
 
-              <div className={`hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${error
+              <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${error
                 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
                 : (loading || isSyncing)
                   ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 animate-pulse'
                   : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                 }`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${error ? 'bg-rose-50' : (loading || isSyncing) ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                {error ? 'Offline' : (loading || isSyncing) ? 'Syncing...' : 'Connected'}
+                {error ? 'Offline' : (loading || isSyncing) ? 'Syncing...' : `Connected`}
               </div>
             </div>
-
           </div>
         </header>
 
         {/* Mobile Navigation Drawer - Sticky and elevated above Map elements */}
-        <div className={`xl:hidden mt-2 mx-auto w-[92%] sm:max-w-[88%] border rounded-2xl p-2.5 grid grid-cols-3 sm:flex sm:items-center sm:justify-around gap-2 sm:gap-1 text-[10px] font-black uppercase tracking-wider sticky top-[100px] z-[9998] shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] transition-all duration-300 ${theme === 'light'
-          ? 'border-indigo-200/90 bg-indigo-50 shadow-indigo-100/30 text-neutral-700'
-          : 'border-slate-800 bg-slate-900 shadow-indigo-950/20 text-neutral-300'
+        <div className={`md:hidden border-b px-4 py-2 flex items-center justify-around gap-1 text-[10px] font-black uppercase tracking-wider sticky top-16 z-[9998] transition-colors duration-300 ${theme === 'light'
+          ? 'border-neutral-200 bg-white/80 text-neutral-600'
+          : 'border-neutral-900 bg-neutral-950/80 text-neutral-400'
           }`}>
           <button
             onClick={() => setActivePage('dashboard')}
-            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'dashboard'
-              ? theme === 'light'
-                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
-              }`}
+            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'dashboard' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
           >
             Home
           </button>
           <button
             onClick={() => setActivePage('data-explorer')}
-            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'data-explorer'
-              ? theme === 'light'
-                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
-              }`}
+            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'data-explorer' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
           >
             Explorer
           </button>
           <button
             onClick={() => setActivePage('registry')}
-            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'registry'
-              ? theme === 'light'
-                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
-              }`}
+            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'registry' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
           >
             Permits
           </button>
           <button
             onClick={() => setActivePage('new-register')}
-            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'new-register'
-              ? theme === 'light'
-                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
-              }`}
+            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'new-register' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
           >
             Register
           </button>
           <button
             onClick={() => setActivePage('contact')}
-            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'contact'
-              ? theme === 'light'
-                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
-              }`}
+            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'contact' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
           >
             Support
           </button>
@@ -4803,6 +4846,9 @@ export default function App() {
             Compliance
           </button>
         </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col pl-16 md:pl-56 relative z-10 w-full min-h-screen justify-between">
 
         {/* MAIN ROUTED CONTENT */}
         <main className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6 min-h-[70vh]">
@@ -4924,25 +4970,25 @@ export default function App() {
             )}
           </AnimatePresence>
         </main>
-      </div>
 
-      {/* FOOTER */}
-      <footer className={`py-6 mt-12 relative z-10 text-center text-xs border-t transition-colors duration-300 ${theme === 'light'
-        ? 'border-neutral-200 bg-white text-neutral-500 shadow-inner'
-        : 'border-neutral-900 bg-neutral-950 text-neutral-500'
-        }`}>
-        <div className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p>© 2026 Geological Survey & Mines Bureau (GSMB), Sri Lanka. All Rights Reserved.</p>
-          <div className="flex items-center gap-3">
-            <span className={`text-[10px] border px-3 py-1 rounded-full font-mono font-bold tracking-widest uppercase transition-colors duration-300 ${theme === 'light'
-              ? 'bg-neutral-50 border-neutral-200 text-neutral-500'
-              : 'bg-neutral-900 border-neutral-800 text-neutral-400'
-              }`}>
-              OVERSIGHT VERSION 2.0.4-STABLE
-            </span>
+        {/* FOOTER */}
+        <footer className={`py-6 mt-12 relative z-10 text-center text-xs border-t transition-colors duration-300 ${theme === 'light'
+          ? 'border-neutral-200 bg-white text-neutral-500 shadow-inner'
+          : 'border-neutral-900 bg-neutral-950 text-neutral-500'
+          }`}>
+          <div className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p>© 2026 Geological Survey & Mines Bureau (GSMB), Sri Lanka. All Rights Reserved.</p>
+            <div className="flex items-center gap-3">
+              <span className={`text-[10px] border px-3 py-1 rounded-full font-mono font-bold tracking-widest uppercase transition-colors duration-300 ${theme === 'light'
+                ? 'bg-neutral-50 border-neutral-200 text-neutral-500'
+                : 'bg-neutral-900 border-neutral-800 text-neutral-400'
+                }`}>
+                OVERSIGHT VERSION 2.0.4-STABLE
+              </span>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
 
       <PermitModal
         permit={selectedPermitForPdf}

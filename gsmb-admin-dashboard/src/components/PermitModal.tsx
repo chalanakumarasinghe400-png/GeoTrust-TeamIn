@@ -161,7 +161,7 @@ export default function PermitModal({ permit, onClose, theme }: PermitModalProps
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
       {/* Modal Card */}
       <div
-        className={`w-full max-w-xl rounded-[28px] border shadow-2xl flex flex-col overflow-hidden animate-scaleIn ${
+        className={`w-full max-w-xl rounded-3xl border shadow-2xl flex flex-col overflow-hidden animate-scaleIn ${
           theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800' : 'bg-neutral-950 border-neutral-800 text-neutral-200'
         }`}
       >
@@ -176,7 +176,7 @@ export default function PermitModal({ permit, onClose, theme }: PermitModalProps
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors cursor-pointer text-neutral-400 hover:text-neutral-200"
+            className="p-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors cursor-pointer text-neutral-400 hover:text-neutral-200"
           >
             <X className="w-4 h-4" />
           </button>
@@ -236,7 +236,7 @@ export default function PermitModal({ permit, onClose, theme }: PermitModalProps
             <img
               src={qrCodeUrl}
               alt="Scan Permit QR"
-              className="w-28 h-28 bg-white p-1.5 rounded-lg border border-neutral-200"
+              className="w-28 h-28 bg-white p-1.5 rounded-xl border border-neutral-200"
             />
             <span className="text-[9px] font-black text-neutral-400 font-mono tracking-wider uppercase">FIELD SCANNABLE CODE</span>
           </div>
