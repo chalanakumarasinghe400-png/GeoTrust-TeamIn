@@ -46,6 +46,7 @@ import AlertsPanel from './components/AlertsPanel';
 import AuditLogPanel, { AuditLogItem } from './components/AuditLogPanel';
 import PermitModal from './components/PermitModal';
 import { IncidentTrendChart, PermitStatusChart } from './components/Charts';
+import ComplianceHub from './components/ComplianceHub';
 import {
   RawLocation,
   RawPermit,
@@ -353,9 +354,9 @@ export default function App() {
   };
 
   // Page routing state
-  const [activePage, setActivePage] = useState<'dashboard' | 'registry' | 'new-register' | 'about' | 'contact' | 'data-explorer'>(() => {
+  const [activePage, setActivePage] = useState<'dashboard' | 'registry' | 'new-register' | 'about' | 'contact' | 'data-explorer' | 'compliance'>(() => {
     const saved = localStorage.getItem('gsmb_active_page');
-    const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer'];
+    const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer', 'compliance'];
     return (validPages.includes(saved || '') ? saved : 'dashboard') as any;
   });
   const [registerTab, setRegisterTab] = useState<'site' | 'user'>('site');
@@ -1449,7 +1450,7 @@ export default function App() {
               <ShieldAlert className="w-6 h-6 text-white" />
             </div>
             <div className="text-left">
-              <span className={`text-2xl font-extrabold tracking-tight uppercase block ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>GSMB GeoTrust</span>
+              <span className={`text-2xl font-extrabold tracking-tight uppercase block ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>GeoTrust</span>
               <p className="text-[11px] text-indigo-400 font-mono tracking-widest uppercase font-bold">Oversight Portal</p>
             </div>
           </div>
@@ -1580,47 +1581,49 @@ export default function App() {
   const renderDashboard = () => {
     return (
       <div className="flex flex-col gap-6 w-full">
-        {/* Redesigned Sleek Top Bar (replacing the giant hero card) */}
-        <div className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-300 border flex flex-col md:flex-row justify-between items-start md:items-center gap-6 ${theme === 'light'
-          ? 'bg-white border-neutral-200 shadow-md'
-          : 'bg-neutral-900/60 backdrop-blur-xl border-neutral-800 shadow-2xl'
+        {/* Redesigned Hero Section (replacing the top bar box) */}
+        <div className={`rounded-3xl p-8 relative overflow-hidden transition-all duration-300 border flex flex-col md:flex-row justify-between items-start md:items-center gap-6 ${theme === 'light'
+          ? 'bg-gradient-to-r from-indigo-50/50 via-white to-indigo-50/20 border-indigo-200/50 shadow-lg shadow-indigo-100/10'
+          : 'bg-gradient-to-r from-[#0a0f24] via-[#090514] to-[#0a0f24] border-indigo-950/60 shadow-2xl'
           }`}>
-          <div className="absolute right-[-20px] bottom-[-20px] w-48 h-48 bg-indigo-500/[0.02] rounded-full blur-2xl pointer-events-none"></div>
+
+          {/* Ambient backgrounds glows */}
+          <div className="absolute right-[-40px] top-[-40px] w-72 h-72 bg-indigo-500/[0.04] rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute left-[-20px] bottom-[-20px] w-60 h-60 bg-indigo-500/[0.02] rounded-full blur-3xl pointer-events-none" />
 
           <div className="flex flex-col gap-2 z-10">
-            <span className="px-3.5 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-full border border-indigo-500/20 uppercase tracking-widest w-max">
-              ADMINISTRATIVE COMPLIANCE & SAFETY PORTAL
-            </span>
-            <h1 className={`text-2xl lg:text-3xl font-black tracking-tight leading-tight mt-1 transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'
-              }`}>
-              Sri Lanka Mineral Telemetry & Verification
+            {/* Top context sub-header - stylized instead of a pill */}
+            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase select-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              Administrative Compliance & Safety Portal
+            </div>
+
+            <h1 className={`text-xl lg:text-2xl font-black tracking-tight leading-tight transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>
+              Sri Lanka Mineral{" "}
+              <span className="text-indigo-600 dark:text-indigo-400">
+                Telemetry Oversight
+              </span>
             </h1>
-            <p className={`text-xs leading-relaxed max-w-xl transition-colors duration-300 ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'
+            <p className={`text-xs max-w-md transition-colors duration-300 ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'
               }`}>
-              Review live permit overloads, transport hotspots, and fraud signals across mining depots and dealers in real-time.
+              Real-time tracking of mineral permits, transit anomalies, and compliance telemetry.
             </p>
           </div>
 
-          {/* Date & Time Lockscreen Widget */}
-          <div className="flex flex-col items-start md:items-end select-none shrink-0 gap-1 text-left md:text-right z-10">
-            <div className="leading-none flex items-baseline w-full justify-start md:justify-end">
-              <span className={`text-5xl lg:text-6xl font-black tracking-tight font-mono transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'
-                }`}>
+          {/* Date & Time Widget */}
+          <div className="flex flex-col items-start md:items-end select-none shrink-0 gap-1.5 text-left md:text-right z-10 font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className={`text-3xl lg:text-4xl font-black tracking-tight transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>
                 {liveDateTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}
               </span>
-              <span className={`text-base font-extrabold tracking-widest font-mono uppercase animate-pulse shrink-0 ml-1.5 ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'
-                }`}>
+              <span className={`text-sm font-bold animate-pulse ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>
                 :{liveDateTime.toLocaleTimeString(undefined, { second: '2-digit' })}
               </span>
-              <span className={`text-[11px] font-black uppercase ml-1.5 ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>
-                {liveDateTime.toLocaleTimeString(undefined, { hour: '2-digit', hour12: true }).slice(-2)}
-              </span>
             </div>
-            <div className="flex items-center justify-between w-full border-t border-neutral-300/40 dark:border-neutral-700/30 pt-1.5">
-              <Calendar className="w-4 h-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
-              <span className={`text-sm font-black uppercase tracking-wider font-mono transition-colors duration-300 ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'
-                }`}>
-                {liveDateTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+              <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+              <span>
+                {liveDateTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
               </span>
             </div>
           </div>
@@ -1854,9 +1857,10 @@ export default function App() {
           ? 'bg-white border-neutral-200 shadow-md'
           : 'bg-neutral-900 border-neutral-800 shadow-xl'
           }`}>
-          <span className="px-3.5 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-full border border-indigo-500/20 uppercase tracking-widest">
-            LIVE COMPLIANCE LEDGER
-          </span>
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase select-none mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            Live Compliance Ledger
+          </div>
           <h1 className={`text-3xl font-black mt-4 tracking-tight transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>Active & Historical Transport Permits</h1>
           <p className={`text-sm max-w-2xl mt-2 leading-relaxed transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'}`}>
             Search, review, and verify every mineral transport permit registered in Sri Lanka. High-contrast labels highlight legal compliance, volume overloads, and GPS anomalies.
@@ -2152,9 +2156,10 @@ export default function App() {
       <div className="flex flex-col gap-6 w-full animate-fadeIn">
         {/* Header */}
         <div className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-300 border ${card}`}>
-          <span className="px-3.5 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-full border border-indigo-500/20 uppercase tracking-widest">
-            DATABASE EXPLORER
-          </span>
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase select-none mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            Database Explorer
+          </div>
           <h1 className={`text-2xl lg:text-3xl font-black mt-3 tracking-tight transition-colors ${th === 'light' ? 'text-neutral-900' : 'text-white'}`}>Data Explorer</h1>
           <p className={`text-xs max-w-2xl mt-1.5 leading-relaxed transition-colors ${th === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>
             Browse and inspect all Users, Mines, Hardware stores, and Trucks from the live database. Click any row for detailed information.
@@ -2993,9 +2998,10 @@ export default function App() {
           : 'bg-neutral-900 border-neutral-800 shadow-2xl'
           }`}>
           <div>
-            <span className="px-3.5 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-full border border-indigo-500/20 uppercase tracking-widest">
-              REGULATION REGISTRY
-            </span>
+            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase select-none mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              Regulation Registry
+            </div>
             <h1 className={`text-3xl font-black mt-4 tracking-tight transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>Register New Site</h1>
             <p className={`text-sm max-w-xl mt-2 leading-relaxed transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'}`}>
               Add new sand quarries, aggregate mines, or hardware distribution hubs to the active GSMB telemetry and compliance database.
@@ -3325,9 +3331,10 @@ export default function App() {
           ? 'bg-white border-neutral-200 shadow-md'
           : 'bg-neutral-900 border-neutral-800 shadow-xl'
           }`}>
-          <span className="px-3.5 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-full border border-indigo-500/20 uppercase tracking-widest">
-            STATUTORY FRAMEWORK
-          </span>
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase select-none mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            Statutory Framework
+          </div>
           <h1 className={`text-3xl font-black mt-4 tracking-tight transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>Geological Survey & Mines Bureau (GSMB)</h1>
           <p className={`text-sm max-w-2xl mt-2 leading-relaxed transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'}`}>
             Established under the Mines and Minerals Act No. 33 of 1992, the GSMB is the prime authority responsible for regulating mining exploration, license issuance, and safe transit protocols in Sri Lanka.
@@ -3490,16 +3497,16 @@ export default function App() {
               <div className="flex flex-col gap-1">
                 <label className={`text-[10px] font-bold uppercase flex items-center gap-1.5 ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>
                   Your Official Email
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${theme === 'light' ? 'bg-neutral-100 text-neutral-400' : 'bg-neutral-800 text-neutral-500'}`}>LOCKED</span>
                 </label>
                 <input
-                  readOnly
+                  required
                   type="email"
                   placeholder="username@gsmb.gov.lk"
                   value={fbEmail}
-                  className={`rounded-xl p-3 text-xs border cursor-not-allowed opacity-75 transition-colors ${theme === 'light'
-                    ? 'bg-neutral-100 border-neutral-200 text-neutral-600'
-                    : 'bg-neutral-900 border-neutral-800 text-neutral-400'
+                  onChange={(e) => setFbEmail(e.target.value)}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${theme === 'light'
+                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
                     }`}
                 />
               </div>
@@ -3786,9 +3793,10 @@ export default function App() {
           : 'bg-neutral-900 border-neutral-800 shadow-2xl'
           }`}>
           <div>
-            <span className="px-3.5 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-full border border-indigo-500/20 uppercase tracking-widest">
-              USER MANAGEMENT
-            </span>
+            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase select-none mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              User Management
+            </div>
             <h1 className={`text-3xl font-black mt-4 tracking-tight transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>Register New User</h1>
             <p className={`text-sm max-w-xl mt-2 leading-relaxed transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'}`}>
               Create credentialed operators, miners, or hardware dealers in the central database to link them to operational locations.
@@ -4004,131 +4012,130 @@ export default function App() {
       </div>
 
       <div className="relative z-10 w-full">
-        {/* Top Header Navigation */}
-        <header className={`sticky top-4 z-[9999] mx-auto max-w-[88%] xl:max-w-[1400px] transition-all duration-300 border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] mt-4 ${
-          theme === 'light' 
-            ? 'border-indigo-200/90 bg-indigo-50 shadow-indigo-100/30' 
-            : 'border-slate-800 bg-slate-900 shadow-indigo-950/20'
-        }`}>
-          <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <header className={`sticky top-4 z-[9999] mx-auto max-w-[88%] xl:max-w-[1400px] transition-all duration-300 border backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] mt-4 ${theme === 'light'
+          ? 'border-indigo-200/80 bg-indigo-50/80 shadow-indigo-100/30'
+          : 'border-slate-800/80 bg-slate-900/80 shadow-indigo-950/20'
+          }`}>
+          <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
 
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActivePage('dashboard')}>
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                <ShieldAlert className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActivePage('dashboard')}>
+              <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                <ShieldAlert className="w-4.5 h-4.5 text-white" />
               </div>
-              <div>
-                <span className={`text-sm font-black tracking-wider uppercase transition-colors ${theme === 'light' ? 'text-indigo-950' : 'text-white'
-                  }`}>GSMB GeoTrust</span>
-                <p className="text-[9px] text-indigo-400 font-mono tracking-widest uppercase font-bold">Oversight Portal</p>
+              <div className="hidden sm:block">
+                <span className={`text-sm 2xl:text-[17px] font-black tracking-wide uppercase transition-colors ${theme === 'light' ? 'text-indigo-950' : 'text-white'
+                  }`}>GeoTrust</span>
+                <p className="text-[9px] 2xl:text-[10px] text-indigo-500 dark:text-indigo-400 tracking-wider uppercase font-extrabold leading-none mt-0.5">Oversight Portal</p>
               </div>
             </div>
 
             {/* Navigation links */}
-            <nav className={`hidden md:flex items-center gap-2 text-[13px] font-bold uppercase transition-colors ${theme === 'light' ? 'text-indigo-950' : 'text-white'
-              }`}>
+            <nav className="hidden xl:flex items-center gap-1 2xl:gap-2 text-xs 2xl:text-sm font-extrabold tracking-wide uppercase">
               <button
                 onClick={() => setActivePage('dashboard')}
-                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'dashboard'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
+                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'dashboard'
+                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
-                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
+                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
+                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Dashboard
               </button>
               <button
                 onClick={() => setActivePage('data-explorer')}
-                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'data-explorer'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
+                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'data-explorer'
+                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
-                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
+                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
+                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Data Explorer
               </button>
               <button
                 onClick={() => setActivePage('registry')}
-                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'registry'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
+                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'registry'
+                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
-                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
+                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
+                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Permit List
               </button>
               <button
                 onClick={() => setActivePage('new-register')}
-                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'new-register'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
+                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'new-register'
+                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
-                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
+                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
+                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 New Register
               </button>
               <button
                 onClick={() => setActivePage('about')}
-                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'about'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
+                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'about'
+                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
-                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
+                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
+                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Guidelines
               </button>
               <button
                 onClick={() => setActivePage('contact')}
-                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'contact'
-                  ? theme === 'light'
-                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
+                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'contact'
+                  ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
-                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
+                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
+                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Support & Reports
               </button>
+              <button
+                onClick={() => setActivePage('compliance')}
+                className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'compliance'
+                  ? 'text-white bg-rose-600 border-rose-600 shadow-md shadow-rose-600/15'
+                  : theme === 'light'
+                    ? 'text-neutral-700 border-transparent hover:text-rose-600 hover:bg-rose-50/75'
+                    : 'text-neutral-300 border-transparent hover:text-rose-400 hover:bg-rose-900/25'
+                  }`}
+              >
+                Compliance Hub
+              </button>
             </nav>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3.5">
               {/* Global Quick Action Buttons */}
               <button
                 onClick={() => loadData(false)}
                 disabled={loading || isSyncing}
-                className={`h-10 px-3.5 disabled:opacity-50 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border ${theme === 'light'
+                className={`h-11 px-4.5 disabled:opacity-50 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border ${theme === 'light'
                   ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300'
                   : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700 hover:border-slate-600 hover:text-indigo-400'
                   }`}
                 title="Refresh Data"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${loading || isSyncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh Data</span>
+                <span className="hidden sm:inline">Refresh</span>
               </button>
+
+              {/* Save Report button code preserved but hidden per user request:
               <button
                 onClick={handleExport}
                 disabled={filteredRecords.length === 0}
-                className="h-10 px-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5 shadow-indigo-600/25"
+                className="h-11 px-4.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center gap-1.5 shadow-indigo-600/25"
                 title="Save Report"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Save Report</span>
               </button>
+              */}
 
               {/* Telemetry Alert Bell Center */}
               <AlertsPanel
@@ -4140,7 +4147,7 @@ export default function App() {
               {/* Theme Toggle Button */}
               <button
                 onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                className={`h-10 w-10 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
+                className={`h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
                   ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300'
                   : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-white'
                   }`}
@@ -4158,7 +4165,7 @@ export default function App() {
               {/* Sign Out Button */}
               <button
                 onClick={handleLogout}
-                className={`h-10 w-10 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
+                className={`h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
                   ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300 hover:text-rose-600'
                   : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-rose-400'
                   }`}
@@ -4182,70 +4189,75 @@ export default function App() {
         </header>
 
         {/* Mobile Navigation Drawer - Sticky and elevated above Map elements */}
-        <div className={`md:hidden mt-2 mx-auto max-w-[88%] border rounded-2xl px-4 py-2 flex items-center justify-around gap-1 text-[10px] font-black uppercase tracking-wider sticky top-[84px] z-[9998] shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] transition-all duration-300 ${
-          theme === 'light' 
-            ? 'border-indigo-200/90 bg-indigo-50 shadow-indigo-100/30 text-neutral-700' 
-            : 'border-slate-800 bg-slate-900 shadow-indigo-950/20 text-neutral-300'
-        }`}>
+        <div className={`xl:hidden mt-2 mx-auto max-w-[88%] border rounded-2xl px-4 py-2 flex items-center justify-around gap-1 text-[10px] font-black uppercase tracking-wider sticky top-[100px] z-[9998] shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] transition-all duration-300 ${theme === 'light'
+          ? 'border-indigo-200/90 bg-indigo-50 shadow-indigo-100/30 text-neutral-700'
+          : 'border-slate-800 bg-slate-900 shadow-indigo-950/20 text-neutral-300'
+          }`}>
           <button
             onClick={() => setActivePage('dashboard')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
-              activePage === 'dashboard'
-                ? theme === 'light'
-                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-                : 'border-transparent text-neutral-500 hover:text-neutral-900'
-            }`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'dashboard'
+              ? theme === 'light'
+                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+              : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              }`}
           >
             Home
           </button>
           <button
             onClick={() => setActivePage('data-explorer')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
-              activePage === 'data-explorer'
-                ? theme === 'light'
-                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-                : 'border-transparent text-neutral-500 hover:text-neutral-900'
-            }`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'data-explorer'
+              ? theme === 'light'
+                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+              : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              }`}
           >
             Explorer
           </button>
           <button
             onClick={() => setActivePage('registry')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
-              activePage === 'registry'
-                ? theme === 'light'
-                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-                : 'border-transparent text-neutral-500 hover:text-neutral-900'
-            }`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'registry'
+              ? theme === 'light'
+                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+              : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              }`}
           >
             Permits
           </button>
           <button
             onClick={() => setActivePage('new-register')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
-              activePage === 'new-register'
-                ? theme === 'light'
-                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-                : 'border-transparent text-neutral-500 hover:text-neutral-900'
-            }`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'new-register'
+              ? theme === 'light'
+                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+              : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              }`}
           >
             Register
           </button>
           <button
             onClick={() => setActivePage('contact')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
-              activePage === 'contact'
-                ? theme === 'light'
-                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
-                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
-                : 'border-transparent text-neutral-500 hover:text-neutral-900'
-            }`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'contact'
+              ? theme === 'light'
+                ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+              : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              }`}
           >
             Support
+          </button>
+          <button
+            onClick={() => setActivePage('compliance')}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'compliance'
+              ? theme === 'light'
+                ? 'text-rose-600 bg-white border-rose-200/60 font-black font-extrabold shadow-sm'
+                : 'text-rose-400 bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+              : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              }`}
+          >
+            Compliance
           </button>
         </div>
 
@@ -4332,6 +4344,24 @@ export default function App() {
                 className="w-full page-font-large"
               >
                 {renderContact()}
+              </motion.div>
+            )}
+
+            {/* ==================== 6. COMPLIANCE & FRAUD ANALYTICS HUB ==================== */}
+            {activePage === 'compliance' && (
+              <motion.div
+                key="compliance"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: "easeInOut" }}
+                className="w-full page-font-large"
+              >
+                <ComplianceHub
+                  permits={allRawPermits}
+                  records={data.records}
+                  theme={theme}
+                />
               </motion.div>
             )}
           </AnimatePresence>

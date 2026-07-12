@@ -52,7 +52,7 @@ export default function AuditLogPanel({ logs, theme }: AuditLogPanelProps) {
             <h3 className="font-extrabold text-sm tracking-tight transition-colors">
               Government Accountability Audit Trail
             </h3>
-            <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
+            <p className="text-[10px] text-neutral-400 font-semibold tracking-wide mt-0.5">
               Secure ledger of administrative actions & system alerts ({logs.length} entries)
             </p>
           </div>
@@ -93,14 +93,14 @@ export default function AuditLogPanel({ logs, theme }: AuditLogPanelProps) {
                   <tr className={`border-b text-[9px] uppercase tracking-widest font-black ${
                     theme === 'light' ? 'border-neutral-200 bg-neutral-100/50 text-neutral-500' : 'border-neutral-800 bg-neutral-900/40 text-neutral-500'
                   }`}>
-                    <th className="py-2.5 px-4 font-mono">Log ID</th>
+                    <th className="py-2.5 px-4">Log ID</th>
                     <th className="py-2.5 px-4">Timestamp</th>
                     <th className="py-2.5 px-4">Actor</th>
                     <th className="py-2.5 px-4">Action Event</th>
                     <th className="py-2.5 px-4">Details</th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y font-mono ${theme === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/40'}`}>
+                <tbody className={`divide-y ${theme === 'light' ? 'divide-neutral-100' : 'divide-neutral-800/40'}`}>
                   {filteredLogs.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-neutral-500 italic">

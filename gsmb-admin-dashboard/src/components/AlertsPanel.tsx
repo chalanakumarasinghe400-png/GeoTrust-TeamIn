@@ -153,7 +153,7 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }
       <div className="relative flex items-center">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={`h-10 w-10 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative ${
+          className={`h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative ${
             isOpen
               ? (theme === 'light' ? 'bg-indigo-100/80 text-indigo-600 border-indigo-300' : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/40')
               : (theme === 'light' ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300' : 'bg-slate-800 hover:bg-slate-700 text-neutral-400 border-slate-700 hover:border-slate-600')
@@ -185,7 +185,7 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 15, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className={`absolute right-0 mt-3 w-[360px] max-h-[480px] rounded-2xl border shadow-2xl flex flex-col overflow-hidden z-[9995] ${
+                className={`absolute right-0 top-full mt-3 w-[360px] max-h-[480px] rounded-2xl border shadow-2xl flex flex-col overflow-hidden z-[9995] ${
                   theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800' : 'bg-neutral-950 border-neutral-800 text-neutral-200'
                 }`}
               >
@@ -193,7 +193,7 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }
                 <div className={`p-4 border-b flex justify-between items-center ${theme === 'light' ? 'bg-neutral-50 border-neutral-100' : 'bg-neutral-900/40 border-neutral-800/80'}`}>
                   <div>
                     <h3 className="font-extrabold text-xs tracking-wider uppercase">Live Telemetry Alerts</h3>
-                    <p className="text-[10px] text-neutral-400 font-mono mt-0.5">{unreadCount} active unresolved anomalies</p>
+                    <p className="text-[10px] text-neutral-400 font-semibold tracking-wide mt-0.5">{unreadCount} active unresolved anomalies</p>
                   </div>
                   {unreadCount > 0 && (
                     <button
@@ -220,13 +220,13 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }
                         } ${alert.status === 'resolved' ? 'opacity-60' : ''}`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-1.5 font-mono text-[10px]">
+                          <div className="flex items-center gap-1.5 font-medium tracking-wider text-[10px]">
                             {getAlertIcon(alert.type)}
                             <span className="font-black text-neutral-400">{alert.id.toUpperCase()}</span>
                             <span className="text-[9px] text-neutral-500">·</span>
                             <span className="font-extrabold text-neutral-600 dark:text-neutral-300">{alert.truckNumber}</span>
                           </div>
-                          <span className="text-[9px] text-neutral-500 font-mono shrink-0">
+                          <span className="text-[9px] text-neutral-500 shrink-0 font-medium">
                             {alert.timestamp.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                           </span>
                         </div>
@@ -234,7 +234,7 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }
                         <p className="text-[11px] leading-relaxed font-medium">{alert.message}</p>
 
                         <div className="flex items-center justify-between gap-2 mt-1">
-                          <span className="text-[9px] font-black uppercase text-neutral-500 tracking-wide font-mono flex items-center gap-1">
+                          <span className="text-[9px] font-black uppercase text-neutral-500 tracking-wider flex items-center gap-1">
                             📍 {alert.location}
                           </span>
 
@@ -291,7 +291,7 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center">
-                  <span className="font-extrabold text-[10px] tracking-wider uppercase text-rose-500 font-mono">TELEMETRY ANOMALY</span>
+                  <span className="font-extrabold text-[10px] tracking-wider uppercase text-rose-500">TELEMETRY ANOMALY</span>
                   <button
                     onClick={() => removeToast(toast.id)}
                     className="text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
@@ -301,7 +301,7 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }
                 </div>
                 <h4 className="font-bold text-xs mt-1 truncate">{toast.truckNumber}</h4>
                 <p className="text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400 mt-1">{toast.message}</p>
-                <div className="text-[9px] text-neutral-400 mt-2 flex items-center gap-1 font-mono">
+                <div className="text-[9px] text-neutral-400 mt-2 flex items-center gap-1 font-medium">
                   📍 {toast.location}
                 </div>
               </div>
