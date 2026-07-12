@@ -16,106 +16,169 @@ export interface AlertItem {
 
 interface AlertsPanelProps {
   theme: 'light' | 'dark';
+  permits: ProcessedPermit[];
   onNewAlertTriggered?: (logMessage: string) => void; // Connect to audit log
 }
 
-const INITIAL_ALERTS: AlertItem[] = [
-  {
-    id: 'alt-001',
-    timestamp: new Date(Date.now() - 4 * 60000), // 4 mins ago
-    truckNumber: 'WP LH-8902',
-    location: 'Kaduwela Exchange',
-    type: 'overload',
-    status: 'active',
-    message: 'Load limit exceeded (5.8m³ registered, maximum 5.0m³).',
-    read: false
-  },
-  {
-    id: 'alt-002',
-    timestamp: new Date(Date.now() - 15 * 60000), // 15 mins ago
-    truckNumber: 'CP LY-4590',
-    location: 'A9 Highway, Dambulla',
-    type: 'gps_lost',
-    status: 'active',
-    message: 'GPS tracking signal lost for more than 10 minutes.',
-    read: false
-  },
-  {
-    id: 'alt-003',
-    timestamp: new Date(Date.now() - 45 * 60000), // 45 mins ago
-    truckNumber: 'SP KA-3021',
-    location: 'Deduru Oya Buffer Zone',
-    type: 'unauthorized_route',
-    status: 'active',
-    message: 'Deviation detected from authorized transit path into river reservation.',
-    read: true
-  }
-];
+export function deriveAlertsFromPermits(permits: ProcessedPermit[]): AlertItem[] {
+  if (!permits) return [];
+  const list: AlertItem[] = [];
 
-const SIMULATED_VEHICLE_NUMBERS = ['WP LH-3024', 'EP PH-9821', 'NW LH-5567', 'WP LP-7712', 'CP LY-8812'];
-const SIMULATED_LOCATIONS = ['Hanwella Quarry Road', 'Rathnapura Bypass', 'Katunayake Expressway Exit', 'Kurunegala Depot', 'Ja-Ela Transit Node'];
-const SIMULATED_VIOLATIONS = [
-  {
-    type: 'overload' as const,
-    message: 'Weight limit warning: volume capacity threshold exceeded by 15%.'
-  },
-  {
-    type: 'gps_lost' as const,
-    message: 'Critical telemetry disruption: remote GPS tracking device offline.'
-  },
-  {
-    type: 'unauthorized_route' as const,
-    message: 'Geofencing alert: vehicle entered restricted environmental protection zone.'
-  }
-];
+  permits.forEach((permit) => {
+    // 1. Cargo overload (> 5.0 cubes)
+    if (permit.volumeCubes > 5.0) {
+      list.push({
+        id: `alt-ov-${permit.id.slice(0, 4)}`,
+        timestamp: permit.transportDate,
+        truckNumber: permit.truckNumber,
+        location: permit.originLocationName || 'Registered Mining Site',
+        type: 'overload',
+        status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+        message: `Vehicle ${permit.truckNumber} overloaded: ${permit.volumeCubes} m³ loaded, standard limit 5m³.`,
+        read: permit.status === 'COMPLETED'
+      });
+    }
 
-export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelProps) {
-  const [alerts, setAlerts] = useState<AlertItem[]>(INITIAL_ALERTS);
-  const [isOpen, setIsOpen] = useState(false);
+    // 2. Unauthorized Route (GPS mismatch) Check
+    if (permit.gpsMismatch) {
+      list.push({
+        id: `alt-rt-${permit.id.slice(0, 4)}`,
+        timestamp: permit.transportDate,
+        truckNumber: permit.truckNumber,
+        location: permit.originLocationName || 'Transit Corridor',
+        type: 'unauthorized_route',
+        status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+        message: `Unauthorized route deviation flagged for vehicle ${permit.truckNumber} on permit ${permit.permitCode}.`,
+        read: permit.status === 'COMPLETED'
+      });
+    }
+
+    // 3. GPS Lost (Missing coordinates) Check
+    if (permit.status !== 'CANCELLED' && (!permit.unloadLatitude || !permit.unloadLongitude)) {
+      list.push({
+        id: `alt-gps-${permit.id.slice(0, 4)}`,
+        timestamp: permit.transportDate,
+        truckNumber: permit.truckNumber,
+        location: permit.originLocationName || 'Offline Corridor',
+        type: 'gps_lost',
+        status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+        message: `GPS signal lost: vehicle ${permit.truckNumber} destination coordinates missing.`,
+        read: permit.status === 'COMPLETED'
+      });
+    }
+  });
+
+  // Sort descending by timestamp
+  return list.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+}
+
+export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }: AlertsPanelProps) {
+  const [resolvedIds, setResolvedIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('geotrust_resolved_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [readIds, setReadIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('geotrust_read_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [seenIds, setSeenIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('geotrust_seen_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [clearedIds, setClearedIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('geotrust_cleared_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   const [toasts, setToasts] = useState<AlertItem[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
 
-  const unreadCount = alerts.filter(a => !a.read).length;
-
-  // Simulator for incoming alerts (runs every 45 seconds to make dashboard feel alive)
   useEffect(() => {
-    const interval = setInterval(() => {
-      const randomVehicle = SIMULATED_VEHICLE_NUMBERS[Math.floor(Math.random() * SIMULATED_VEHICLE_NUMBERS.length)];
-      const randomLocation = SIMULATED_LOCATIONS[Math.floor(Math.random() * SIMULATED_LOCATIONS.length)];
-      const randomViolation = SIMULATED_VIOLATIONS[Math.floor(Math.random() * SIMULATED_VIOLATIONS.length)];
+    localStorage.setItem('geotrust_resolved_ids', JSON.stringify(resolvedIds));
+  }, [resolvedIds]);
 
-      const newAlert: AlertItem = {
-        id: `alt-${Math.random().toString(36).substr(2, 5)}`,
-        timestamp: new Date(),
-        truckNumber: randomVehicle,
-        location: randomLocation,
-        type: randomViolation.type,
-        status: 'active',
-        message: `${randomVehicle} at ${randomLocation}: ${randomViolation.message}`,
-        read: false
-      };
+  useEffect(() => {
+    localStorage.setItem('geotrust_read_ids', JSON.stringify(readIds));
+  }, [readIds]);
 
-      setAlerts(prev => [newAlert, ...prev]);
-      setToasts(prev => [...prev, newAlert]);
+  useEffect(() => {
+    localStorage.setItem('geotrust_seen_ids', JSON.stringify(seenIds));
+  }, [seenIds]);
 
-      // Propagate event to audit trail
-      if (onNewAlertTriggered) {
-        onNewAlertTriggered(`System triggered telemetry alert ${newAlert.id.toUpperCase()} on vehicle ${newAlert.truckNumber}`);
-      }
-    }, 45000);
+  useEffect(() => {
+    localStorage.setItem('geotrust_cleared_ids', JSON.stringify(clearedIds));
+  }, [clearedIds]);
 
-    return () => clearInterval(interval);
-  }, [onNewAlertTriggered]);
-
-  const handleMarkAllRead = () => {
-    setAlerts(prev => prev.map(a => ({ ...a, read: true })));
-  };
+  // Compute final alerts list overlaying user actions
+  const alerts = useMemo(() => {
+    return deriveAlertsFromPermits(permits)
+      .filter((alert) => !clearedIds.includes(alert.id))
+      .map((alert) => {
+        const isResolved = resolvedIds.includes(alert.id) || alert.status === 'resolved';
+        const isRead = readIds.includes(alert.id) || alert.read || isResolved;
+        return {
+          ...alert,
+          status: isResolved ? ('resolved' as const) : ('active' as const),
+          read: isRead,
+        };
+      });
+  }, [permits, resolvedIds, readIds, clearedIds]);
 
   const handleClearAll = () => {
-    setAlerts([]);
+    const allIds = deriveAlertsFromPermits(permits).map((a) => a.id);
+    setClearedIds((prev) => [...new Set([...prev, ...allIds])]);
+  };
+
+  const unreadCount = alerts.filter((a) => !a.read).length;
+
+  // Sync effect to show toast warnings only for newly arrived database alerts
+  useEffect(() => {
+    if (!permits || permits.length === 0) return;
+
+    const currentAlerts = deriveAlertsFromPermits(permits);
+    const currentIds = currentAlerts.map((a) => a.id);
+
+    if (seenIds.length === 0) {
+      setSeenIds(currentIds);
+      return;
+    }
+
+    const newAlerts = currentAlerts.filter((a) => !seenIds.includes(a.id) && a.status === 'active');
+    if (newAlerts.length > 0) {
+      setToasts((prev) => [...prev, ...newAlerts]);
+      setSeenIds((prev) => [...prev, ...newAlerts.map((a) => a.id)]);
+
+      if (onNewAlertTriggered) {
+        newAlerts.forEach((alert) => {
+          onNewAlertTriggered(`Live database sync detected alert ${alert.id.toUpperCase()} on vehicle ${alert.truckNumber}`);
+        });
+      }
+    }
+  }, [permits, seenIds, onNewAlertTriggered]);
+
+  const handleMarkAllRead = () => {
+    const unreadAlerts = alerts.filter((a) => !a.read);
+    setReadIds((prev) => [...prev, ...unreadAlerts.map((a) => a.id)]);
   };
 
   const handleResolveAlert = (id: string) => {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'resolved' as const, read: true } : a));
+    setResolvedIds((prev) => [...prev, id]);
+    setReadIds((prev) => [...prev, id]);
     if (onNewAlertTriggered) {
       onNewAlertTriggered(`Admin resolved telemetry alert ${id.toUpperCase()}`);
     }
@@ -127,7 +190,7 @@ export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelP
 
   const handleAlertClick = (alert: AlertItem) => {
     if (!alert.read) {
-      setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, read: true } : a));
+      setReadIds((prev) => [...prev, alert.id]);
     }
     setIsOpen(false);
   };
@@ -149,20 +212,20 @@ export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelP
       <div className="relative flex items-center">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={`h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative ${isOpen
+          className={`h-9 w-9 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative ${isOpen
             ? (theme === 'light' ? 'bg-indigo-100/80 text-indigo-600 border-indigo-300' : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/40')
             : (theme === 'light' ? 'bg-white hover:bg-indigo-50/50 text-slate-900 border-indigo-200/80 hover:border-indigo-300' : 'bg-slate-800 hover:bg-slate-700 text-neutral-400 border-slate-700 hover:border-slate-600')
             }`}
           title="Telemetry Alerts"
         >
           {unreadCount > 0 ? (
-            <BellRing className="w-5 h-5 animate-pulse text-rose-500" />
+            <BellRing className="w-4.5 h-4.5 animate-pulse text-rose-500" />
           ) : (
-            <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+            <Bell className="w-4.5 h-4.5 group-hover:rotate-12 transition-transform" />
           )}
 
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-rose-500 text-white font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-bounce">
+            <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white font-black text-[8px] w-4 h-4 rounded-full flex items-center justify-center shadow-md animate-bounce">
               {unreadCount}
             </span>
           )}

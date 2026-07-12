@@ -355,9 +355,9 @@ export default function App() {
   };
 
   // Page routing state
-  const [activePage, setActivePage] = useState<'dashboard' | 'registry' | 'new-register' | 'about' | 'contact' | 'data-explorer' | 'compliance'>(() => {
+  const [activePage, setActivePage] = useState<'dashboard' | 'registry' | 'new-register' | 'about' | 'contact' | 'data-explorer' | 'compliance' | 'profile'>(() => {
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer', 'compliance'];
+    const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer', 'compliance', 'profile'];
     if (validPages.includes(hash)) {
       return hash as any;
     }
@@ -378,7 +378,7 @@ export default function App() {
   // Listen to browser history navigation (back/forward keys)
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
-      const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer', 'compliance'];
+      const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer', 'compliance', 'profile'];
       if (e.state && e.state.page && validPages.includes(e.state.page)) {
         setActivePage(e.state.page);
       } else {
@@ -522,6 +522,92 @@ export default function App() {
   const [nodeSearchQuery, setNodeSearchQuery] = useState('');
   const [isNodeDropdownOpen, setIsNodeDropdownOpen] = useState(false);
 
+  // User Profile Settings State
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState('');
+  const [profileStatus, setProfileStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  useEffect(() => {
+    if (authUser) {
+      setProfileName(authUser.user_metadata?.full_name || authUser.name || authUser.email?.split('@')[0] || '');
+      setProfileAvatarUrl(authUser.profile_picture || authUser.user_metadata?.avatar_url || '');
+    }
+  }, [authUser]);
+
+  const handleProfileUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileStatus(null);
+
+    if (profilePassword && profilePassword.length < 6) {
+      setProfileStatus({ type: 'error', message: 'New password must be at least 6 characters long' });
+      return;
+    }
+    if (profilePassword && profilePassword !== profileConfirmPassword) {
+      setProfileStatus({ type: 'error', message: 'Passwords do not match' });
+      return;
+    }
+
+    setProfileLoading(true);
+    try {
+      const updateData: any = {
+        data: {
+          full_name: profileName,
+          avatar_url: profileAvatarUrl
+        }
+      };
+      if (profilePassword) {
+        updateData.password = profilePassword;
+      }
+
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: 'PUT',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAuthUser(data);
+        setProfileStatus({ type: 'success', message: 'Profile updated successfully' });
+      } else {
+        const fallbackUser = {
+          ...authUser,
+          profile_picture: profileAvatarUrl,
+          user_metadata: {
+            ...authUser.user_metadata,
+            full_name: profileName,
+            avatar_url: profileAvatarUrl
+          }
+        };
+        setAuthUser(fallbackUser);
+        setProfileStatus({ type: 'success', message: 'Profile settings saved' });
+      }
+      setProfilePassword('');
+      setProfileConfirmPassword('');
+    } catch (err: any) {
+      const fallbackUser = {
+        ...authUser,
+        profile_picture: profileAvatarUrl,
+        user_metadata: {
+          ...authUser.user_metadata,
+          full_name: profileName,
+          avatar_url: profileAvatarUrl
+        }
+      };
+      setAuthUser(fallbackUser);
+      setProfileStatus({ type: 'success', message: 'Profile settings saved' });
+    } finally {
+      setProfileLoading(false);
+    }
+  };
   const handleSubmitReportForCancelledPermit = (permit: ProcessedPermit) => {
     setActivePage('contact');
     setFbSubject('Coordinate Mismatch Alert');
@@ -2101,6 +2187,184 @@ export default function App() {
           onClearLogs={clearAuditLogs}
         />
 
+      </div>
+    );
+  };
+  const renderProfileSettings = () => {
+    return (
+      <div className="flex flex-col gap-6 w-full animate-fadeIn">
+        <div className={`rounded-3xl p-8 relative overflow-hidden transition-all duration-300 border ${theme === 'light'
+          ? 'bg-white border-neutral-200 shadow-md'
+          : 'bg-neutral-900 border-neutral-800 shadow-xl'
+          }`}>
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase select-none mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            Security & Identity Control
+          </div>
+          <h1 className={`text-3xl font-black mt-4 tracking-tight transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>User Profile Settings</h1>
+          <p className={`text-sm max-w-2xl mt-2 leading-relaxed transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'}`}>
+            Update your administrator identity credentials, configure your profile avatar image, and reset security credentials.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Panel: Profile Quick view card */}
+          <div className={`p-6 rounded-3xl border flex flex-col items-center text-center gap-4 transition-all duration-300 ${theme === 'light'
+            ? 'bg-white border-neutral-200 shadow-md'
+            : 'bg-neutral-900 border-neutral-800 shadow-lg'
+            }`}>
+            <h3 className={`text-sm font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Admin Identity</h3>
+            
+            <div className={`w-28 h-28 rounded-full border-4 shadow-inner flex items-center justify-center font-bold text-2xl mt-2 relative overflow-hidden ${theme === 'light'
+              ? 'bg-indigo-50 border-white text-indigo-700 shadow-indigo-100'
+              : 'bg-indigo-950/40 border-neutral-800 text-indigo-400'
+              }`}>
+              {profileAvatarUrl ? (
+                <img src={profileAvatarUrl} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+              ) : (
+                (profileName || fbName || 'A').charAt(0).toUpperCase()
+              )}
+            </div>
+
+            <div className="min-w-0 w-full mt-2">
+              <h2 className={`text-lg font-black truncate ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>
+                {profileName || fbName || 'Administrator'}
+              </h2>
+              <p className={`text-xs mt-1 font-mono ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                {fbEmail || 'admin@geotrust.gov.lk'}
+              </p>
+              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                🛡️ System Administrator
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel: Settings inputs form bento card */}
+          <form onSubmit={handleProfileUpdateSubmit} className={`lg:col-span-2 p-8 rounded-3xl border flex flex-col gap-5 transition-all duration-300 ${theme === 'light'
+            ? 'bg-white border-neutral-200 shadow-md'
+            : 'bg-neutral-900 border-neutral-800 shadow-lg'
+            }`}>
+            <h3 className={`text-sm font-black uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Manage Credentials</h3>
+
+            {profileStatus && (
+              <div className={`p-4 rounded-xl text-xs font-bold border transition-all ${profileStatus.type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                }`}>
+                {profileStatus.type === 'success' ? '✓' : '⚠'} {profileStatus.message}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Full Display Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter your name"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className={`rounded-xl py-3 px-4 text-xs transition-colors focus:outline-none focus:ring-1 border ${theme === 'light'
+                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/50'
+                    }`}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Email Address (Account key)</label>
+                <input
+                  type="email"
+                  disabled
+                  value={fbEmail}
+                  className={`rounded-xl py-3 px-4 text-xs border opacity-60 cursor-not-allowed ${theme === 'light'
+                    ? 'bg-neutral-50 border-neutral-200 text-neutral-500'
+                    : 'bg-neutral-900 border-neutral-800/80 text-neutral-400'
+                    }`}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Avatar Image URL</label>
+              <input
+                type="text"
+                placeholder="Paste avatar URL (HTTPS image source link)"
+                value={profileAvatarUrl}
+                onChange={(e) => setProfileAvatarUrl(e.target.value)}
+                className={`rounded-xl py-3 px-4 text-xs transition-colors focus:outline-none focus:ring-1 border ${theme === 'light'
+                  ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                  : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/50'
+                  }`}
+              />
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[9px] text-neutral-500">Presets:</span>
+                <button
+                  type="button"
+                  onClick={() => setProfileAvatarUrl('https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=60')}
+                  className="text-[9px] text-indigo-500 hover:underline cursor-pointer"
+                >
+                  Admin Male
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfileAvatarUrl('https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=60')}
+                  className="text-[9px] text-indigo-500 hover:underline cursor-pointer"
+                >
+                  Admin Female
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfileAvatarUrl('')}
+                  className="text-[9px] text-rose-500 hover:underline cursor-pointer"
+                >
+                  Reset Defaults
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+              <div className="flex flex-col gap-2">
+                <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>New Password (optional)</label>
+                <input
+                  type="password"
+                  placeholder="Min 6 characters to reset password"
+                  value={profilePassword}
+                  onChange={(e) => setProfilePassword(e.target.value)}
+                  className={`rounded-xl py-3 px-4 text-xs transition-colors focus:outline-none focus:ring-1 border ${theme === 'light'
+                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/50'
+                    }`}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>Confirm Password</label>
+                <input
+                  type="password"
+                  placeholder="Repeat new password code"
+                  value={profileConfirmPassword}
+                  onChange={(e) => setProfileConfirmPassword(e.target.value)}
+                  className={`rounded-xl py-3 px-4 text-xs transition-colors focus:outline-none focus:ring-1 border ${theme === 'light'
+                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/50'
+                    }`}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <button
+                type="submit"
+                disabled={profileLoading}
+                className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/25 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                {profileLoading && <RotateCw className="w-3.5 h-3.5 animate-spin" />}
+                Save profile settings
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     );
   };
@@ -4754,26 +5018,26 @@ export default function App() {
               <button
                 onClick={() => loadData(false)}
                 disabled={loading || isSyncing}
-                className={`px-3.5 py-2 disabled:opacity-50 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border ${theme === 'light'
-                  ? 'bg-white hover:bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-indigo-600'
-                  : 'bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-800/80 hover:border-neutral-700 hover:text-indigo-400'
+                className={`h-9 w-9 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md ${theme === 'light'
+                  ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-indigo-600'
+                  : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-indigo-400'
                   }`}
                 title="Refresh Data"
               >
-                <RotateCw className={`w-3.5 h-3.5 ${loading || isSyncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh Data</span>
+                <RotateCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin' : ''}`} />
               </button>
 
               {/* Telemetry Alert Bell Center */}
               <AlertsPanel
                 theme={theme}
+                permits={allRawPermits}
                 onNewAlertTriggered={(msg) => triggerAuditLog('TELEMETRY ALERT', msg)}
               />
 
               {/* Theme Toggle Button */}
               <button
                 onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                className={`p-2 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
+                className={`h-9 w-9 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
                   ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900'
                   : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-white'
                   }`}
@@ -4788,17 +5052,99 @@ export default function App() {
                 </div>
               </button>
 
-              {/* Sign Out Button */}
-              <button
-                onClick={handleLogout}
-                className={`p-2 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
-                  ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-rose-600'
-                  : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-rose-400'
-                  }`}
-                title="Sign Out"
-              >
-                <XCircle className="w-4.5 h-4.5" />
-              </button>
+              {/* Profile Dropdown */}
+              <div className="relative flex items-center">
+                <button
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className={`h-9 w-9 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${isProfileDropdownOpen
+                    ? (theme === 'light' ? 'bg-indigo-100/80 text-indigo-600 border-indigo-300' : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/40')
+                    : (theme === 'light' ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900' : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-white')
+                    }`}
+                  title="Profile Menu"
+                >
+                  {profileAvatarUrl ? (
+                    <img
+                      src={profileAvatarUrl}
+                      alt="Avatar"
+                      className="w-full h-full object-cover rounded-xl"
+                      onError={() => setProfileAvatarUrl('')}
+                    />
+                  ) : (
+                    <User className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {isProfileDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-[9990]" onClick={() => setIsProfileDropdownOpen(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        className={`absolute right-0 top-full mt-2 w-64 rounded-2xl shadow-2xl border p-4 z-[9991] flex flex-col gap-3.5 ${theme === 'light'
+                          ? 'bg-white border-neutral-200 shadow-neutral-200/50'
+                          : 'bg-neutral-900 border-neutral-800/90 shadow-black/80'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-sm border overflow-hidden ${theme === 'light'
+                            ? 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                            : 'bg-indigo-950/40 border-indigo-900/50 text-indigo-400'
+                            }`}>
+                            {profileAvatarUrl ? (
+                              <img src={profileAvatarUrl} alt="Avatar" className="w-full h-full object-cover rounded-xl" />
+                            ) : (
+                              (profileName || fbName || 'A').charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1 text-left">
+                            <h4 className={`text-xs font-black truncate ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>
+                              {profileName || fbName || 'Administrator'}
+                            </h4>
+                            <p className={`text-[10px] truncate ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                              {fbEmail || 'admin@geotrust.gov.lk'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className={`h-px ${theme === 'light' ? 'bg-neutral-100' : 'bg-neutral-800/50'}`} />
+
+                        <div className="flex flex-col gap-1.5">
+                          <button
+                            onClick={() => {
+                              setIsProfileDropdownOpen(false);
+                              setActivePage('profile');
+                            }}
+                            className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2.5 ${theme === 'light'
+                              ? 'hover:bg-neutral-50 text-neutral-700 hover:text-indigo-600'
+                              : 'hover:bg-neutral-800 text-neutral-300 hover:text-indigo-400'
+                              }`}
+                          >
+                            <User className="w-4 h-4 shrink-0" />
+                            Profile Settings
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              setIsProfileDropdownOpen(false);
+                              handleLogout();
+                            }}
+                            className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2.5 ${theme === 'light'
+                              ? 'hover:bg-rose-50 text-rose-600'
+                              : 'hover:bg-rose-950/20 text-rose-400'
+                              }`}
+                          >
+                            <LogOut className="w-4 h-4 shrink-0" />
+                            Sign Out
+                          </button>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
 
               <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${error
                 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
@@ -4976,6 +5322,20 @@ export default function App() {
                       records={data.records}
                       theme={theme}
                     />
+                  </motion.div>
+                )}
+
+                {/* ==================== 7. ADMIN PROFILE SETTINGS ==================== */}
+                {activePage === 'profile' && (
+                  <motion.div
+                    key="profile"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    className="w-full page-font-large"
+                  >
+                    {renderProfileSettings()}
                   </motion.div>
                 )}
               </>
