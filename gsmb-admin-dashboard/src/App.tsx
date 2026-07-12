@@ -487,29 +487,32 @@ export default function App() {
   ]);
 
   const [selectedPermitForPdf, setSelectedPermitForPdf] = useState<ProcessedPermit | null>(null);
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([
-    {
-      id: "LOG-3092",
-      timestamp: new Date(Date.now() - 5 * 60000),
-      actor: "dtshoppr@gmail.com",
-      action: "PERMIT EXPORT",
-      details: "Downloaded compliance report PDF with type MINE SITES"
-    },
-    {
-      id: "LOG-2918",
-      timestamp: new Date(Date.now() - 25 * 60000),
-      actor: "dtshoppr@gmail.com",
-      action: "REGISTER MINE",
-      details: "Successfully registered mine site 'Kuruwita Quarry Depot' (ID: MIN-KRW-02)"
-    },
-    {
-      id: "LOG-2018",
-      timestamp: new Date(Date.now() - 3 * 3600000),
-      actor: "dtshoppr@gmail.com",
-      action: "USER SIGNIN",
-      details: "Admin authenticated via secure token grant"
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(() => {
+    try {
+      const stored = localStorage.getItem('gsmb_audit_logs');
+      if (stored) {
+        return JSON.parse(stored).map((log: any) => ({
+          ...log,
+          timestamp: new Date(log.timestamp)
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to parse stored audit logs", e);
     }
-  ]);
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('gsmb_audit_logs', JSON.stringify(auditLogs));
+  }, [auditLogs]);
+
+  const deleteAuditLog = useCallback((id: string) => {
+    setAuditLogs(prev => prev.filter(log => log.id !== id));
+  }, []);
+
+  const clearAuditLogs = useCallback(() => {
+    setAuditLogs([]);
+  }, []);
 
   const triggerAuditLog = useCallback((action: string, details: string) => {
     const newLog: AuditLogItem = {
@@ -648,13 +651,13 @@ export default function App() {
           inventoryRiskPoints = 0; // safe
         }
       } else {
-        // Mine: high warning / risk when it is near to empty (low remaining inventory)
-        if (inventory <= 15) {
-          inventoryRiskPoints = 2; // nearing empty alert
-        } else if (inventory <= 30) {
-          inventoryRiskPoints = 1; // moderately low warning
+        // Mine: high warning / risk when it is near depletion (high cumulative excavation)
+        if (inventory >= maxCapacity * 0.75) {
+          inventoryRiskPoints = 2; // nearing capacity depletion limit alert
+        } else if (inventory >= maxCapacity * 0.5) {
+          inventoryRiskPoints = 1; // moderately high warning
         } else {
-          inventoryRiskPoints = 0; // safe (plenty of stock remaining)
+          inventoryRiskPoints = 0; // safe (well within allowed excavation quota)
         }
       }
 
@@ -699,8 +702,8 @@ export default function App() {
               ? `${overloadIncidents} overload(s), ${fraudIncidents} fraud indicator(s) found`
               : isHardware && inventory >= maxCapacity * 0.75
                 ? `Store is near maximum capacity (${inventory} m³ / ${maxCapacity} m³)`
-                : !isHardware && inventory <= 15
-                  ? `Mine is near empty: high risk of service disruption (${inventory} m³ remaining)`
+                : !isHardware && inventory >= maxCapacity * 0.75
+                  ? `Mine is nearing allowed excavation limit (${inventory} m³ / ${maxCapacity} m³ excavated)`
                   : '',
         coordinates: [
           Number(location.latitude ?? FALLBACK_CENTER[0]),
@@ -1577,106 +1580,116 @@ export default function App() {
       </div>
     );
   };
-
   const renderDashboard = () => {
     return (
       <div className="flex flex-col gap-6 w-full">
-        {/* Redesigned Hero Section (replacing the top bar box) */}
-        <div className={`rounded-3xl p-8 relative overflow-hidden transition-all duration-300 border flex flex-col md:flex-row justify-between items-start md:items-center gap-6 ${theme === 'light'
-          ? 'bg-gradient-to-r from-indigo-50/50 via-white to-indigo-50/20 border-indigo-200/50 shadow-lg shadow-indigo-100/10'
-          : 'bg-gradient-to-r from-[#0a0f24] via-[#090514] to-[#0a0f24] border-indigo-950/60 shadow-2xl'
-          }`}>
-
-          {/* Ambient backgrounds glows */}
-          <div className="absolute right-[-40px] top-[-40px] w-72 h-72 bg-indigo-500/[0.04] rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute left-[-20px] bottom-[-20px] w-60 h-60 bg-indigo-500/[0.02] rounded-full blur-3xl pointer-events-none" />
-
-          <div className="flex flex-col gap-2 z-10">
-            {/* Top context sub-header - stylized instead of a pill */}
-            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-              Administrative Compliance & Safety Portal
-            </div>
-
-            <h1 className={`text-xl lg:text-2xl font-black tracking-tight leading-tight transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>
-              Sri Lanka Mineral{" "}
-              <span className="text-indigo-600 dark:text-indigo-400">
-                Telemetry Oversight
-              </span>
-            </h1>
-            <p className={`text-xs max-w-md transition-colors duration-300 ${theme === 'light' ? 'text-neutral-500' : 'text-neutral-400'
-              }`}>
-              Real-time tracking of mineral permits, transit anomalies, and compliance telemetry.
-            </p>
+        {/* ── Hero Banner ──────────────────────────────────────────────────────── */}
+        <div className="relative w-full overflow-visible" style={{ height: '280px' }}>
+          {/* Background image container - breakout to full viewport width, going behind the header to eliminate any gap/line */}
+          <div
+            className="absolute -left-4 -right-4 sm:-left-6 sm:-right-6 lg:-left-8 lg:-right-8 -top-[104px] transition-all duration-300"
+            style={{
+              height: '400px',
+              zIndex: 0,
+              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)'
+            }}
+          >
+            <img
+              src="https://images.unsplash.com/photo-1532601224476-15c79f2f7a51?w=1600&q=80&auto=format&fit=crop"
+              alt="Sri Lanka mineral sand mining quarry"
+              className="w-full h-full object-cover object-center transition-all duration-300"
+              style={{ filter: theme === 'light' ? 'brightness(0.90) saturate(1.2) contrast(1.05)' : 'brightness(0.85) saturate(1.0) contrast(1.05)' }}
+            />
+            {/* Dark overlay only in dark mode to assist dark contrast, no black overlay in light mode */}
+            <div className={`absolute inset-0 transition-all duration-300 ${theme === 'light'
+              ? 'bg-gradient-to-t from-white/0 via-transparent to-transparent'
+              : 'bg-gradient-to-t from-black/30 via-transparent to-transparent'
+              }`} />
           </div>
 
-          {/* Date & Time Widget */}
-          <div className="flex flex-col items-start md:items-end select-none shrink-0 gap-1.5 text-left md:text-right z-10 font-mono">
-            <div className="flex items-center gap-1.5">
-              <span className={`text-3xl lg:text-4xl font-black tracking-tight transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>
-                {liveDateTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </span>
-              <span className={`text-sm font-bold animate-pulse ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>
-                :{liveDateTime.toLocaleTimeString(undefined, { second: '2-digit' })}
-              </span>
+          {/* Content */}
+          <div className="relative z-10 h-full flex items-center justify-between px-8 gap-4">
+            {/* Left: text placed directly on the image background with light colors for maximum visibility */}
+            <div className="flex flex-col gap-2 max-w-2xl">
+
+              <h1 className="text-4xl lg:text-5xl font-black leading-tight tracking-tight text-white hero-title">
+                Sri Lanka Mineral{' '}
+                <span className="text-indigo-300">Telemetry Oversight</span>
+              </h1>
+              <p className="text-lg font-bold max-w-xl leading-relaxed text-black hero-desc">
+                Real-time tracking of mineral permits, transit anomalies &amp; compliance telemetry across Sri Lanka.
+              </p>
+
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-              <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-              <span>
-                {liveDateTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-              </span>
+
+            {/* Right: clock wrapped in a dynamic theme-driven glass card */}
+            <div className={`hidden sm:flex flex-col items-end gap-1.5 select-none shrink-0 font-mono backdrop-blur-md rounded-2xl px-8 py-7 shadow-sm transition-all duration-300 -translate-y-6 ${theme === 'light'
+              ? 'bg-white/75'
+              : 'bg-black/50'
+              }`}>
+              <div className="flex items-baseline gap-1">
+                <span className={`text-4xl lg:text-5xl font-black tracking-tight transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900' : 'text-white'
+                  }`}>
+                  {liveDateTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}
+                </span>
+                <span className={`text-xl font-black animate-pulse ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'
+                  }`}>
+                  :{liveDateTime.toLocaleTimeString(undefined, { second: '2-digit' })}
+                </span>
+              </div>
+              <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors duration-300 ${theme === 'light' ? 'text-neutral-600' : 'text-white/60'
+                }`}>
+                <Calendar className={`w-3.5 h-3.5 ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`} />
+                <span>{liveDateTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Dashboard Metrics Bento Grid */}
+        {/* ── Dashboard Metrics Bento Grid ─────────────────────────────────────── */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {data.metrics.map((metric, i) => {
             const boxStyle = [
               {
-                // Registered Users (Indigo Gradient)
                 classes: theme === 'light'
-                  ? 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white border-indigo-600 hover:shadow-lg hover:shadow-indigo-500/20'
-                  : 'bg-gradient-to-br from-indigo-950/80 to-indigo-900/40 border-indigo-500/30 text-white shadow-xl shadow-indigo-950/20',
-                iconClass: theme === 'light' ? 'text-white' : 'text-indigo-400',
-                labelClass: theme === 'light' ? 'text-indigo-100 font-extrabold' : 'text-indigo-300 font-extrabold',
-                valueClass: 'text-white font-black',
-                noteClass: theme === 'light' ? 'text-indigo-100/80 font-medium' : 'text-indigo-400/80 font-medium',
+                  ? 'bg-[#ecf0f6] border-[#d4dce8] text-slate-850 hover:bg-[#e2e8f1] hover:shadow-md hover:shadow-slate-200/10'
+                  : 'bg-gradient-to-br from-[#1b263b]/90 to-[#121c2c]/40 border-[#2e3f5d]/70 text-white shadow-xl shadow-[#0e1726]/30 hover:border-[#3d537a]/60',
+                iconClass: theme === 'light' ? 'text-slate-500' : 'text-indigo-300',
+                labelClass: theme === 'light' ? 'text-slate-700 font-extrabold' : 'text-indigo-200 font-extrabold',
+                valueClass: theme === 'light' ? 'text-slate-900 font-black' : 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-slate-400 font-medium' : 'text-indigo-400/80 font-medium',
               },
               {
-                // Active Mines (Emerald Gradient)
                 classes: theme === 'light'
-                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-emerald-600 hover:shadow-lg hover:shadow-emerald-500/20'
-                  : 'bg-gradient-to-br from-emerald-950/80 to-emerald-900/40 border-emerald-500/30 text-white shadow-xl shadow-emerald-950/20',
-                iconClass: theme === 'light' ? 'text-white' : 'text-emerald-400',
-                labelClass: theme === 'light' ? 'text-emerald-100 font-extrabold' : 'text-emerald-300 font-extrabold',
-                valueClass: 'text-white font-black',
-                noteClass: theme === 'light' ? 'text-emerald-100/80 font-medium' : 'text-emerald-400/80 font-medium',
+                  ? 'bg-[#ecf0f6] border-[#d4dce8] text-slate-850 hover:bg-[#e2e8f1] hover:shadow-md hover:shadow-slate-200/10'
+                  : 'bg-gradient-to-br from-[#1b263b]/90 to-[#121c2c]/40 border-[#2e3f5d]/70 text-white shadow-xl shadow-[#0e1726]/30 hover:border-[#3d537a]/60',
+                iconClass: theme === 'light' ? 'text-slate-500' : 'text-indigo-300',
+                labelClass: theme === 'light' ? 'text-slate-700 font-extrabold' : 'text-indigo-200 font-extrabold',
+                valueClass: theme === 'light' ? 'text-slate-900 font-black' : 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-slate-400 font-medium' : 'text-indigo-400/80 font-medium',
               },
               {
-                // Hardware Stores (Sky Gradient)
                 classes: theme === 'light'
-                  ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-600 hover:shadow-lg hover:shadow-sky-500/20'
-                  : 'bg-gradient-to-br from-sky-950/80 to-blue-950/40 border-sky-500/30 text-white shadow-xl shadow-sky-950/20',
-                iconClass: theme === 'light' ? 'text-white' : 'text-sky-400',
-                labelClass: theme === 'light' ? 'text-sky-100 font-extrabold' : 'text-sky-300 font-extrabold',
-                valueClass: 'text-white font-black',
-                noteClass: theme === 'light' ? 'text-sky-100/80 font-medium' : 'text-sky-400/80 font-medium',
+                  ? 'bg-[#ecf0f6] border-[#d4dce8] text-slate-850 hover:bg-[#e2e8f1] hover:shadow-md hover:shadow-slate-200/10'
+                  : 'bg-gradient-to-br from-[#1b263b]/90 to-[#121c2c]/40 border-[#2e3f5d]/70 text-white shadow-xl shadow-[#0e1726]/30 hover:border-[#3d537a]/60',
+                iconClass: theme === 'light' ? 'text-slate-500' : 'text-indigo-300',
+                labelClass: theme === 'light' ? 'text-slate-700 font-extrabold' : 'text-indigo-200 font-extrabold',
+                valueClass: theme === 'light' ? 'text-slate-900 font-black' : 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-slate-400 font-medium' : 'text-indigo-400/80 font-medium',
               },
               {
-                // Logistics Trucks (Amber Gradient)
                 classes: theme === 'light'
-                  ? 'bg-gradient-to-br from-amber-500 to-amber-700 text-white border-amber-600 hover:shadow-lg hover:shadow-amber-500/20'
-                  : 'bg-gradient-to-br from-amber-950/80 to-amber-900/40 border-amber-500/30 text-white shadow-xl shadow-amber-950/20',
-                iconClass: theme === 'light' ? 'text-white' : 'text-amber-400',
-                labelClass: theme === 'light' ? 'text-amber-100 font-extrabold' : 'text-amber-300 font-extrabold',
-                valueClass: 'text-white font-black',
-                noteClass: theme === 'light' ? 'text-amber-100/80 font-medium' : 'text-amber-400/80 font-medium',
+                  ? 'bg-[#ecf0f6] border-[#d4dce8] text-slate-850 hover:bg-[#e2e8f1] hover:shadow-md hover:shadow-slate-200/10'
+                  : 'bg-gradient-to-br from-[#1b263b]/90 to-[#121c2c]/40 border-[#2e3f5d]/70 text-white shadow-xl shadow-[#0e1726]/30 hover:border-[#3d537a]/60',
+                iconClass: theme === 'light' ? 'text-slate-500' : 'text-indigo-300',
+                labelClass: theme === 'light' ? 'text-slate-700 font-extrabold' : 'text-indigo-200 font-extrabold',
+                valueClass: theme === 'light' ? 'text-slate-900 font-black' : 'text-white font-black',
+                noteClass: theme === 'light' ? 'text-slate-400 font-medium' : 'text-indigo-400/80 font-medium',
               },
               {
-                // Open overloads (Rose Gradient)
                 classes: theme === 'light'
-                  ? 'bg-gradient-to-br from-rose-500 to-red-600 text-white border-rose-600 hover:shadow-lg hover:shadow-rose-500/20'
+                  ? 'bg-gradient-to-br from-rose-400 to-red-500 text-white border-rose-600 hover:shadow-lg hover:shadow-rose-500/20'
                   : 'bg-gradient-to-br from-rose-950/80 to-red-950/40 border-rose-500/30 text-white shadow-xl shadow-rose-950/20',
                 iconClass: theme === 'light' ? 'text-white' : 'text-rose-400',
                 labelClass: theme === 'light' ? 'text-rose-100 font-extrabold' : 'text-rose-300 font-extrabold',
@@ -1684,7 +1697,6 @@ export default function App() {
                 noteClass: theme === 'light' ? 'text-rose-100/80 font-medium' : 'text-rose-400/80 font-medium',
               },
               {
-                // Fraud flags (Purple Gradient)
                 classes: theme === 'light'
                   ? 'bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white border-purple-600 hover:shadow-lg hover:shadow-purple-500/20'
                   : 'bg-gradient-to-br from-purple-950/80 to-fuchsia-950/40 border-purple-500/30 text-white shadow-xl shadow-purple-950/20',
@@ -1694,7 +1706,6 @@ export default function App() {
                 noteClass: theme === 'light' ? 'text-purple-100/80 font-medium' : 'text-purple-400/80 font-medium',
               },
               {
-                // Active permits (Teal Gradient)
                 classes: theme === 'light'
                   ? 'bg-gradient-to-br from-teal-500 to-cyan-600 text-white border-teal-600 hover:shadow-lg hover:shadow-teal-500/20'
                   : 'bg-gradient-to-br from-teal-950/80 to-cyan-950/40 border-teal-500/30 text-white shadow-xl shadow-teal-950/20',
@@ -1715,7 +1726,7 @@ export default function App() {
               <button
                 key={i}
                 onClick={() => handleMetricClick(i)}
-                className={`text-left rounded-[28px] p-7 flex flex-col justify-between h-[160px] border relative overflow-hidden group cursor-pointer active:scale-[0.98] modern-grid-card ${boxStyle.classes}`}
+                className={`text-left rounded-[28px] p-5 sm:p-7 flex flex-col justify-between h-[160px] border relative overflow-hidden group cursor-pointer active:scale-[0.98] modern-grid-card ${boxStyle.classes}`}
               >
                 <div className="absolute right-4 top-4 opacity-15 group-hover:opacity-30 group-hover:scale-110 transition-all duration-300">
                   {i === 0 && <Users className={`w-14 h-14 ${boxStyle.iconClass}`} />}
@@ -1740,7 +1751,7 @@ export default function App() {
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* Interactive Map Component */}
-          <div className={theme === 'light' ? 'lg:col-span-8 bg-white border border-neutral-200 p-8 rounded-[32px] shadow-2xl flex flex-col gap-5 min-h-[500px] map-glow-container hover:border-neutral-200/80 transition-all duration-300' : 'lg:col-span-8 bg-neutral-900 border border-neutral-800 p-8 rounded-[32px] shadow-2xl flex flex-col gap-5 min-h-[500px] map-glow-container hover:border-neutral-700/80 transition-all duration-300'}>
+          <div className={theme === 'light' ? 'lg:col-span-8 bg-white border border-neutral-200 p-5 sm:p-8 rounded-[32px] shadow-2xl flex flex-col gap-5 min-h-[500px] map-glow-container hover:border-neutral-200/80 transition-all duration-300' : 'lg:col-span-8 bg-neutral-900 border border-neutral-800 p-5 sm:p-8 rounded-[32px] shadow-2xl flex flex-col gap-5 min-h-[500px] map-glow-container hover:border-neutral-700/80 transition-all duration-300'}>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <p className="text-[11px] font-extrabold text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Live Geo-Tracking</p>
@@ -1764,6 +1775,45 @@ export default function App() {
               </div>
             </div>
 
+            {/* Quick Map Filtering Toolbar */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 select-none mb-1">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="region" className="text-[10px] font-black tracking-wider uppercase text-neutral-500">
+                  Filter by Geological Region
+                </label>
+                <select
+                  id="region"
+                  value={selectedRegion}
+                  onChange={(e) => setSelectedRegion(e.target.value)}
+                  className={`w-full rounded-xl px-3.5 py-2.5 text-xs transition-all cursor-pointer font-bold focus:outline-none focus:ring-1 border ${theme === 'light' ? 'bg-neutral-50 border-neutral-200 text-neutral-800 focus:ring-indigo-500/20' : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'}`}
+                >
+                  <option value="all">All administrative regions</option>
+                  {regionsList.map((reg) => (
+                    <option key={reg} value={reg}>
+                      {reg}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="risk" className="text-[10px] font-black tracking-wider uppercase text-neutral-500">
+                  Risk Assessment Status
+                </label>
+                <select
+                  id="risk"
+                  value={selectedRisk}
+                  onChange={(e) => setSelectedRisk(e.target.value)}
+                  className={`w-full rounded-xl px-3.5 py-2.5 text-xs transition-all cursor-pointer font-bold focus:outline-none focus:ring-1 border ${theme === 'light' ? 'bg-neutral-50 border-neutral-200 text-neutral-800 focus:ring-indigo-500/20' : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'}`}
+                >
+                  <option value="all">All Risk Classes</option>
+                  <option value="high">High Assessment Alert</option>
+                  <option value="medium">Medium and Above warnings</option>
+                  <option value="low">Low Risk Only</option>
+                </select>
+              </div>
+            </div>
+
             <div className="flex-1 w-full min-h-[420px] relative rounded-2xl overflow-hidden shadow-inner">
               <MapComponent
                 records={filteredRecords}
@@ -1783,7 +1833,7 @@ export default function App() {
           <div className="lg:col-span-4 flex flex-col gap-6">
 
             {/* Incident Trend */}
-            <article className={theme === 'light' ? 'bg-white border border-neutral-200 p-8 rounded-[32px] shadow-lg flex flex-col gap-5 modern-grid-card' : 'bg-neutral-900 border border-neutral-800 p-8 rounded-[32px] shadow-lg flex flex-col gap-5 modern-grid-card'}>
+            <article className={theme === 'light' ? 'bg-white border border-neutral-200 p-5 sm:p-8 rounded-[32px] shadow-lg flex flex-col gap-5 modern-grid-card' : 'bg-neutral-900 border border-neutral-800 p-5 sm:p-8 rounded-[32px] shadow-lg flex flex-col gap-5 modern-grid-card'}>
               <div>
                 <p className="text-[11px] font-extrabold text-rose-500 dark:text-rose-400 tracking-widest uppercase">Telemetry Incident Trend</p>
                 <h2 className={`text-lg font-bold mt-0.5 ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>Overloads vs Fraud Alerts</h2>
@@ -1792,7 +1842,7 @@ export default function App() {
             </article>
 
             {/* Status Distribution */}
-            <article className={theme === 'light' ? 'bg-white border border-neutral-200 p-8 rounded-[32px] shadow-lg flex flex-col gap-5 modern-grid-card' : 'bg-neutral-900 border border-neutral-800 p-8 rounded-[32px] shadow-lg flex flex-col gap-5 modern-grid-card'}>
+            <article className={theme === 'light' ? 'bg-white border border-neutral-200 p-5 sm:p-8 rounded-[32px] shadow-lg flex flex-col gap-5 modern-grid-card' : 'bg-neutral-900 border border-neutral-800 p-5 sm:p-8 rounded-[32px] shadow-lg flex flex-col gap-5 modern-grid-card'}>
               <div>
                 <p className="text-[11px] font-extrabold text-amber-500 dark:text-amber-400 tracking-widest uppercase">State Outcome Allocation</p>
                 <h2 className={`text-lg font-bold mt-0.5 ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>Permit Compliance</h2>
@@ -1803,47 +1853,15 @@ export default function App() {
           </div>
         </section>
 
-        {/* Controls and Region/Risk Filtering Toolbar */}
-        <section className={theme === 'light' ? 'bg-white border border-neutral-200 p-6 rounded-[28px] grid grid-cols-1 md:grid-cols-2 gap-5 shadow-lg hover:border-neutral-200/80 transition-all duration-300' : 'bg-neutral-900 border border-neutral-800 p-6 rounded-[28px] grid grid-cols-1 md:grid-cols-2 gap-5 shadow-lg hover:border-neutral-700/80 transition-all duration-300'}>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="region" className="text-[11px] font-extrabold text-neutral-500 tracking-wider uppercase">
-              Filter by Geological Region
-            </label>
-            <select
-              id="region"
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-              className={`w-full rounded-2xl p-4 text-base transition-all cursor-pointer font-medium focus:outline-none focus:ring-2 border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20' : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'}`}
-            >
-              <option value="all">All administrative regions</option>
-              {regionsList.map((reg) => (
-                <option key={reg} value={reg}>
-                  {reg}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label htmlFor="risk" className="text-[11px] font-extrabold text-neutral-500 tracking-wider uppercase">
-              Risk Assessment Status
-            </label>
-            <select
-              id="risk"
-              value={selectedRisk}
-              onChange={(e) => setSelectedRisk(e.target.value)}
-              className={`w-full rounded-2xl p-4 text-base transition-all cursor-pointer font-medium focus:outline-none focus:ring-2 border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20' : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'}`}
-            >
-              <option value="all">All Risk Classes</option>
-              <option value="high">High Assessment Alert</option>
-              <option value="medium">Medium and Above warnings</option>
-              <option value="low">Low Risk Only</option>
-            </select>
-          </div>
-        </section>
+        {/* Controls toolbar removed - integrated above the map */}
 
         {/* Accountability Audit Log panel */}
-        <AuditLogPanel logs={auditLogs} theme={theme} />
+        <AuditLogPanel 
+          logs={auditLogs} 
+          theme={theme} 
+          onDeleteLog={deleteAuditLog} 
+          onClearLogs={clearAuditLogs} 
+        />
 
       </div>
     );
@@ -4008,14 +4026,12 @@ export default function App() {
           style={{ maskImage: 'radial-gradient(ellipse at center, black, transparent 95%)' }}
         ></div>
         <div className={`absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[135px] ${theme === 'light' ? 'bg-indigo-500/[0.01]' : 'bg-indigo-500/[0.03]'}`}></div>
-        <div className={`absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[135px] ${theme === 'light' ? 'bg-indigo-500/[0.01]' : 'bg-indigo-500/[0.02]'}`}></div>
+        <div className={`absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[135px] ${theme === 'light' ? 'bg-slate-500/5' : 'bg-slate-500/5'}`}></div>
+        <div className={`absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[135px] ${theme === 'light' ? 'bg-indigo-500/5' : 'bg-indigo-500/5'}`}></div>
       </div>
 
       <div className="relative z-10 w-full">
-        <header className={`sticky top-4 z-[9999] mx-auto max-w-[88%] xl:max-w-[1400px] transition-all duration-300 border backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] mt-4 ${theme === 'light'
-          ? 'border-indigo-200/80 bg-indigo-50/80 shadow-indigo-100/30'
-          : 'border-slate-800/80 bg-slate-900/80 shadow-indigo-950/20'
-          }`}>
+        <header className="sticky top-0 z-[9999] w-full transition-all duration-300 border-b backdrop-blur-xl shadow-lg border-neutral-900 bg-neutral-950/95 shadow-neutral-950/20">
           <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
 
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActivePage('dashboard')}>
@@ -4023,9 +4039,8 @@ export default function App() {
                 <ShieldAlert className="w-4.5 h-4.5 text-white" />
               </div>
               <div className="hidden sm:block">
-                <span className={`text-sm 2xl:text-[17px] font-black tracking-wide uppercase transition-colors ${theme === 'light' ? 'text-indigo-950' : 'text-white'
-                  }`}>GeoTrust</span>
-                <p className="text-[9px] 2xl:text-[10px] text-indigo-500 dark:text-indigo-400 tracking-wider uppercase font-extrabold leading-none mt-0.5">Oversight Portal</p>
+                <span className="text-sm 2xl:text-[17px] font-black tracking-wide uppercase text-white">GeoTrust</span>
+                <p className="text-[9px] 2xl:text-[10px] text-indigo-400 tracking-wider uppercase font-extrabold leading-none mt-0.5">Oversight Portal</p>
               </div>
             </div>
 
@@ -4035,9 +4050,7 @@ export default function App() {
                 onClick={() => setActivePage('dashboard')}
                 className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'dashboard'
                   ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : theme === 'light'
-                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
-                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
+                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Dashboard
@@ -4046,9 +4059,7 @@ export default function App() {
                 onClick={() => setActivePage('data-explorer')}
                 className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'data-explorer'
                   ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : theme === 'light'
-                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
-                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
+                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Data Explorer
@@ -4057,9 +4068,7 @@ export default function App() {
                 onClick={() => setActivePage('registry')}
                 className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'registry'
                   ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : theme === 'light'
-                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
-                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
+                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Permit List
@@ -4068,9 +4077,7 @@ export default function App() {
                 onClick={() => setActivePage('new-register')}
                 className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'new-register'
                   ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : theme === 'light'
-                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
-                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
+                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 New Register
@@ -4079,9 +4086,7 @@ export default function App() {
                 onClick={() => setActivePage('about')}
                 className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'about'
                   ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : theme === 'light'
-                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
-                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
+                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Guidelines
@@ -4090,9 +4095,7 @@ export default function App() {
                 onClick={() => setActivePage('contact')}
                 className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'contact'
                   ? 'text-white bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/15'
-                  : theme === 'light'
-                    ? 'text-neutral-700 border-transparent hover:text-indigo-600 hover:bg-indigo-50/75'
-                    : 'text-neutral-300 border-transparent hover:text-white hover:bg-slate-800/75'
+                  : 'text-slate-100 border-transparent hover:text-white hover:bg-slate-800/75'
                   }`}
               >
                 Support & Reports
@@ -4101,9 +4104,7 @@ export default function App() {
                 onClick={() => setActivePage('compliance')}
                 className={`h-11 px-3 2xl:px-4.5 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'compliance'
                   ? 'text-white bg-rose-600 border-rose-600 shadow-md shadow-rose-600/15'
-                  : theme === 'light'
-                    ? 'text-neutral-700 border-transparent hover:text-rose-600 hover:bg-rose-50/75'
-                    : 'text-neutral-300 border-transparent hover:text-rose-400 hover:bg-rose-900/25'
+                  : 'text-neutral-300 border-transparent hover:text-rose-400 hover:bg-rose-900/25'
                   }`}
               >
                 Compliance Hub
@@ -4115,27 +4116,12 @@ export default function App() {
               <button
                 onClick={() => loadData(false)}
                 disabled={loading || isSyncing}
-                className={`h-11 px-4.5 disabled:opacity-50 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border ${theme === 'light'
-                  ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300'
-                  : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700 hover:border-slate-600 hover:text-indigo-400'
-                  }`}
+                className="h-11 px-4.5 disabled:opacity-50 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border bg-slate-800 hover:bg-slate-700 text-white border-slate-700 hover:border-slate-600 hover:text-indigo-400"
                 title="Refresh Data"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${loading || isSyncing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Refresh</span>
               </button>
-
-              {/* Save Report button code preserved but hidden per user request:
-              <button
-                onClick={handleExport}
-                disabled={filteredRecords.length === 0}
-                className="h-11 px-4.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center gap-1.5 shadow-indigo-600/25"
-                title="Save Report"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Save Report</span>
-              </button>
-              */}
 
               {/* Telemetry Alert Bell Center */}
               <AlertsPanel
@@ -4147,10 +4133,7 @@ export default function App() {
               {/* Theme Toggle Button */}
               <button
                 onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                className={`h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
-                  ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300'
-                  : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-white'
-                  }`}
+                className="h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-white"
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 id="theme-toggle-btn"
               >
@@ -4165,10 +4148,7 @@ export default function App() {
               {/* Sign Out Button */}
               <button
                 onClick={handleLogout}
-                className={`h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
-                  ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300 hover:text-rose-600'
-                  : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-rose-400'
-                  }`}
+                className="h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-rose-400"
                 title="Sign Out"
               >
                 <XCircle className="w-4.5 h-4.5" />
@@ -4181,7 +4161,7 @@ export default function App() {
                   : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                 }`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${error ? 'bg-rose-50' : (loading || isSyncing) ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                {error ? 'Offline' : (loading || isSyncing) ? 'Syncing...' : `Connected`}
+                {error ? 'Offline' : (loading || isSyncing) ? 'Syncing...' : 'Connected'}
               </div>
             </div>
 

@@ -156,7 +156,7 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }
           className={`h-11 w-11 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative ${
             isOpen
               ? (theme === 'light' ? 'bg-indigo-100/80 text-indigo-600 border-indigo-300' : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/40')
-              : (theme === 'light' ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300' : 'bg-slate-800 hover:bg-slate-700 text-neutral-400 border-slate-700 hover:border-slate-600')
+              : (theme === 'light' ? 'bg-white hover:bg-indigo-50/50 text-slate-900 border-indigo-200/80 hover:border-indigo-300' : 'bg-slate-800 hover:bg-slate-700 text-neutral-400 border-slate-700 hover:border-slate-600')
           }`}
           title="Telemetry Alerts"
         >
