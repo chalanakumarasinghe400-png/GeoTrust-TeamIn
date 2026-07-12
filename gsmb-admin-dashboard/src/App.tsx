@@ -594,7 +594,14 @@ export default function App() {
   };
 
   // Build cohesive dashboard metrics, location records, and status outcomes
-  const buildDashboardData = (locations: RawLocation[], permits: ProcessedPermit[]): DashboardData => {
+  const buildDashboardData = (
+    locations: RawLocation[],
+    permits: ProcessedPermit[],
+    mines: any[],
+    hardwares: any[],
+    trucks: any[],
+    users: any[]
+  ): DashboardData => {
     const permitsByLocation = new Map<string, ProcessedPermit[]>();
 
     permits.forEach((permit) => {
@@ -720,22 +727,22 @@ export default function App() {
     const metrics = [
       {
         label: 'Registered Users',
-        value: dbUsers.length,
+        value: users.length,
         note: 'Active regulatory accounts',
       },
       {
         label: 'Active Mines',
-        value: rawMinesData.length,
+        value: mines.length,
         note: 'Monitored extraction sites',
       },
       {
         label: 'Hardware Stores',
-        value: rawHardwaresData.length,
+        value: hardwares.length,
         note: 'Registered distribution depots',
       },
       {
         label: 'Logistics Trucks',
-        value: rawTrucks.length,
+        value: trucks.length,
         note: 'Tracked logistics vehicles',
       },
       {
@@ -843,12 +850,7 @@ export default function App() {
       }
       setDbUsers(fetchedUsers);
 
-      try {
-        const schemaInfo = await fetchSupabase('');
-        setDbSchema(schemaInfo);
-      } catch (errSchema) {
-        console.error('Failed to fetch OpenAPI schema:', errSchema);
-      }
+      setDbSchema(null);
 
       const collectedMineUserIds = (rawMines as any[]).map((m) => m.user_id).filter(Boolean);
       const collectedHardwareUserIds = (rawHardwares as any[]).map((h) => h.user_id).filter(Boolean);
@@ -962,7 +964,14 @@ export default function App() {
         };
       });
 
-      const dashboardPayload = buildDashboardData(enrichedLocations, processedPermits);
+      const dashboardPayload = buildDashboardData(
+        enrichedLocations,
+        processedPermits,
+        rawMines as any[],
+        rawHardwares as any[],
+        fetchedTrucks,
+        fetchedUsers
+      );
       setData(dashboardPayload);
 
       // Start with no specific active record selected so map displays whole country
@@ -3996,98 +4005,101 @@ export default function App() {
 
       <div className="relative z-10 w-full">
         {/* Top Header Navigation */}
-        <header className={`border-b backdrop-blur-md sticky top-0 z-[9999] transition-all duration-300 ${theme === 'light' ? 'border-neutral-200 bg-white/80' : 'border-neutral-900 bg-neutral-950/80'
-          }`}>
-          <div className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <header className={`sticky top-4 z-[9999] mx-auto max-w-[88%] xl:max-w-[1400px] transition-all duration-300 border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] mt-4 ${
+          theme === 'light' 
+            ? 'border-indigo-200/90 bg-indigo-50 shadow-indigo-100/30' 
+            : 'border-slate-800 bg-slate-900 shadow-indigo-950/20'
+        }`}>
+          <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
 
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActivePage('dashboard')}>
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25">
                 <ShieldAlert className="w-4 h-4 text-white" />
               </div>
               <div>
-                <span className={`text-sm font-black tracking-wider uppercase transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-neutral-100'
+                <span className={`text-sm font-black tracking-wider uppercase transition-colors ${theme === 'light' ? 'text-indigo-950' : 'text-white'
                   }`}>GSMB GeoTrust</span>
                 <p className="text-[9px] text-indigo-400 font-mono tracking-widest uppercase font-bold">Oversight Portal</p>
               </div>
             </div>
 
             {/* Navigation links */}
-            <nav className={`hidden md:flex items-center gap-2 text-[13px] font-bold uppercase transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'
+            <nav className={`hidden md:flex items-center gap-2 text-[13px] font-bold uppercase transition-colors ${theme === 'light' ? 'text-indigo-950' : 'text-white'
               }`}>
               <button
                 onClick={() => setActivePage('dashboard')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'dashboard'
+                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'dashboard'
                   ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
+                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
                   }`}
               >
                 Dashboard
               </button>
               <button
                 onClick={() => setActivePage('data-explorer')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'data-explorer'
+                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'data-explorer'
                   ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
+                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
                   }`}
               >
                 Data Explorer
               </button>
               <button
                 onClick={() => setActivePage('registry')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'registry'
+                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'registry'
                   ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
+                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
                   }`}
               >
                 Permit List
               </button>
               <button
                 onClick={() => setActivePage('new-register')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'new-register'
+                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'new-register'
                   ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
+                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
                   }`}
               >
                 New Register
               </button>
               <button
                 onClick={() => setActivePage('about')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'about'
+                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'about'
                   ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
+                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
                   }`}
               >
                 Guidelines
               </button>
               <button
                 onClick={() => setActivePage('contact')}
-                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'contact'
+                className={`h-10 px-4 rounded-xl transition-all border duration-300 flex items-center justify-center ${activePage === 'contact'
                   ? theme === 'light'
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
-                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                    ? 'text-indigo-700 bg-white border-indigo-200/60 font-black shadow-sm'
+                    : 'text-white bg-slate-950 border-slate-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'border-transparent hover:text-indigo-900 hover:bg-white/45'
+                    : 'border-transparent hover:text-white hover:bg-slate-800/45'
                   }`}
               >
                 Support & Reports
@@ -4099,9 +4111,9 @@ export default function App() {
               <button
                 onClick={() => loadData(false)}
                 disabled={loading || isSyncing}
-                className={`px-3.5 py-2 disabled:opacity-50 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border ${theme === 'light'
-                  ? 'bg-white hover:bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-indigo-600'
-                  : 'bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-800/80 hover:border-neutral-700 hover:text-indigo-400'
+                className={`h-10 px-3.5 disabled:opacity-50 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border ${theme === 'light'
+                  ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300'
+                  : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700 hover:border-slate-600 hover:text-indigo-400'
                   }`}
                 title="Refresh Data"
               >
@@ -4111,7 +4123,7 @@ export default function App() {
               <button
                 onClick={handleExport}
                 disabled={filteredRecords.length === 0}
-                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5 shadow-indigo-600/25"
+                className="h-10 px-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5 shadow-indigo-600/25"
                 title="Save Report"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -4121,15 +4133,16 @@ export default function App() {
               {/* Telemetry Alert Bell Center */}
               <AlertsPanel
                 theme={theme}
+                permits={allRawPermits}
                 onNewAlertTriggered={(msg) => triggerAuditLog('TELEMETRY ALERT', msg)}
               />
 
               {/* Theme Toggle Button */}
               <button
                 onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                className={`p-2 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
-                  ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900'
-                  : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-white'
+                className={`h-10 w-10 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
+                  ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300'
+                  : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-white'
                   }`}
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 id="theme-toggle-btn"
@@ -4145,9 +4158,9 @@ export default function App() {
               {/* Sign Out Button */}
               <button
                 onClick={handleLogout}
-                className={`p-2 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
-                  ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-rose-600'
-                  : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 text-neutral-400 hover:text-rose-400'
+                className={`h-10 w-10 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative overflow-hidden ${theme === 'light'
+                  ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300 hover:text-rose-600'
+                  : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-neutral-400 hover:text-rose-400'
                   }`}
                 title="Sign Out"
               >
@@ -4169,37 +4182,68 @@ export default function App() {
         </header>
 
         {/* Mobile Navigation Drawer - Sticky and elevated above Map elements */}
-        <div className={`md:hidden border-b px-4 py-2 flex items-center justify-around gap-1 text-[10px] font-black uppercase tracking-wider sticky top-16 z-[9998] transition-colors duration-300 ${theme === 'light'
-          ? 'border-neutral-200 bg-white/80 text-neutral-600'
-          : 'border-neutral-900 bg-neutral-950/80 text-neutral-400'
-          }`}>
+        <div className={`md:hidden mt-2 mx-auto max-w-[88%] border rounded-2xl px-4 py-2 flex items-center justify-around gap-1 text-[10px] font-black uppercase tracking-wider sticky top-[84px] z-[9998] shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] transition-all duration-300 ${
+          theme === 'light' 
+            ? 'border-indigo-200/90 bg-indigo-50 shadow-indigo-100/30 text-neutral-700' 
+            : 'border-slate-800 bg-slate-900 shadow-indigo-950/20 text-neutral-300'
+        }`}>
           <button
             onClick={() => setActivePage('dashboard')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'dashboard' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
+              activePage === 'dashboard'
+                ? theme === 'light'
+                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+            }`}
           >
             Home
           </button>
           <button
             onClick={() => setActivePage('data-explorer')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'data-explorer' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
+              activePage === 'data-explorer'
+                ? theme === 'light'
+                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+            }`}
           >
             Explorer
           </button>
           <button
             onClick={() => setActivePage('registry')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'registry' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
+              activePage === 'registry'
+                ? theme === 'light'
+                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+            }`}
           >
             Permits
           </button>
           <button
             onClick={() => setActivePage('new-register')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'new-register' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
+              activePage === 'new-register'
+                ? theme === 'light'
+                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+            }`}
           >
             Register
           </button>
           <button
             onClick={() => setActivePage('contact')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'contact' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
+            className={`py-1.5 px-2.5 rounded-lg border transition-all ${
+              activePage === 'contact'
+                ? theme === 'light'
+                  ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
+                  : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+            }`}
           >
             Support
           </button>

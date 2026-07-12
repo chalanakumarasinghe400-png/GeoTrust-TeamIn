@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Bell, BellRing, Check, AlertTriangle, WifiOff, ShieldAlert, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import { ProcessedPermit } from '../types';
 
 export interface AlertItem {
   id: string;
@@ -15,109 +16,124 @@ export interface AlertItem {
 
 interface AlertsPanelProps {
   theme: 'light' | 'dark';
+  permits: ProcessedPermit[];
   onNewAlertTriggered?: (logMessage: string) => void; // Connect to audit log
 }
 
-const INITIAL_ALERTS: AlertItem[] = [
-  {
-    id: 'alt-001',
-    timestamp: new Date(Date.now() - 4 * 60000), // 4 mins ago
-    truckNumber: 'WP LH-8902',
-    location: 'Kaduwela Exchange',
-    type: 'overload',
-    status: 'active',
-    message: 'Load limit exceeded (5.8m³ registered, maximum 5.0m³).',
-    read: false
-  },
-  {
-    id: 'alt-002',
-    timestamp: new Date(Date.now() - 15 * 60000), // 15 mins ago
-    truckNumber: 'CP LY-4590',
-    location: 'A9 Highway, Dambulla',
-    type: 'gps_lost',
-    status: 'active',
-    message: 'GPS tracking signal lost for more than 10 minutes.',
-    read: false
-  },
-  {
-    id: 'alt-003',
-    timestamp: new Date(Date.now() - 45 * 60000), // 45 mins ago
-    truckNumber: 'SP KA-3021',
-    location: 'Deduru Oya Buffer Zone',
-    type: 'unauthorized_route',
-    status: 'active',
-    message: 'Deviation detected from authorized transit path into river reservation.',
-    read: true
-  }
-];
+export function deriveAlertsFromPermits(permits: ProcessedPermit[]): AlertItem[] {
+  if (!permits) return [];
+  const list: AlertItem[] = [];
 
-const SIMULATED_VEHICLE_NUMBERS = ['WP LH-3024', 'EP PH-9821', 'NW LH-5567', 'WP LP-7712', 'CP LY-8812'];
-const SIMULATED_LOCATIONS = ['Hanwella Quarry Road', 'Rathnapura Bypass', 'Katunayake Expressway Exit', 'Kurunegala Depot', 'Ja-Ela Transit Node'];
-const SIMULATED_VIOLATIONS = [
-  {
-    type: 'overload' as const,
-    message: 'Weight limit warning: volume capacity threshold exceeded by 15%.'
-  },
-  {
-    type: 'gps_lost' as const,
-    message: 'Critical telemetry disruption: remote GPS tracking device offline.'
-  },
-  {
-    type: 'unauthorized_route' as const,
-    message: 'Geofencing alert: vehicle entered restricted environmental protection zone.'
-  }
-];
+  permits.forEach((permit) => {
+    // 1. Cargo overload (> 5.0 cubes)
+    if (permit.volumeCubes > 5.0) {
+      list.push({
+        id: `alt-ov-${permit.id}`,
+        timestamp: permit.transportDate,
+        truckNumber: permit.truckNumber,
+        location: permit.originLocationName || 'Unknown Site',
+        type: 'overload',
+        status: permit.status === 'COMPLETED' ? 'resolved' : 'active',
+        message: `Load limit warning: volume capacity threshold exceeded (${permit.volumeCubes}m³ registered, maximum 5.0m³).`,
+        read: false,
+      });
+    }
 
-export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelProps) {
-  const [alerts, setAlerts] = useState<AlertItem[]>(INITIAL_ALERTS);
-  const [isOpen, setIsOpen] = useState(false);
-  const [toasts, setToasts] = useState<AlertItem[]>([]);
-
-  const unreadCount = alerts.filter(a => !a.read).length;
-
-  // Simulator for incoming alerts (runs every 45 seconds to make dashboard feel alive)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const randomVehicle = SIMULATED_VEHICLE_NUMBERS[Math.floor(Math.random() * SIMULATED_VEHICLE_NUMBERS.length)];
-      const randomLocation = SIMULATED_LOCATIONS[Math.floor(Math.random() * SIMULATED_LOCATIONS.length)];
-      const randomViolation = SIMULATED_VIOLATIONS[Math.floor(Math.random() * SIMULATED_VIOLATIONS.length)];
-
-      const newAlert: AlertItem = {
-        id: `alt-${Math.random().toString(36).substr(2, 5)}`,
-        timestamp: new Date(),
-        truckNumber: randomVehicle,
-        location: randomLocation,
-        type: randomViolation.type,
+    // 2. Deviation / cancelled permit
+    if (permit.status === 'CANCELLED') {
+      list.push({
+        id: `alt-ur-${permit.id}`,
+        timestamp: permit.transportDate,
+        truckNumber: permit.truckNumber,
+        location: permit.originLocationName || 'Unknown Site',
+        type: 'unauthorized_route',
         status: 'active',
-        message: `${randomVehicle} at ${randomLocation}: ${randomViolation.message}`,
-        read: false
+        message: `Geofencing alert: vehicle transit path cancelled (possible deviation detected).`,
+        read: false,
+      });
+    }
+
+    // 3. Completed but missing GPS coordinates
+    if (permit.status === 'COMPLETED' && (permit.unloadLatitude === null || permit.unloadLongitude === null)) {
+      list.push({
+        id: `alt-gps-${permit.id}`,
+        timestamp: permit.transportDate,
+        truckNumber: permit.truckNumber,
+        location: permit.originLocationName || 'Unknown Site',
+        type: 'gps_lost',
+        status: 'active',
+        message: `Telemetry alert: completed permit has no registered unload location GPS data.`,
+        read: false,
+      });
+    }
+  });
+
+  // Sort descending by timestamp
+  return list.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+}
+
+export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered }: AlertsPanelProps) {
+  const [resolvedIds, setResolvedIds] = useState<string[]>([]);
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const [seenIds, setSeenIds] = useState<string[]>([]);
+  const [toasts, setToasts] = useState<AlertItem[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Compute final alerts list overlaying user actions
+  const alerts = useMemo(() => {
+    return deriveAlertsFromPermits(permits).map((alert) => {
+      const isResolved = resolvedIds.includes(alert.id) || alert.status === 'resolved';
+      const isRead = readIds.includes(alert.id) || alert.read || isResolved;
+      return {
+        ...alert,
+        status: isResolved ? ('resolved' as const) : ('active' as const),
+        read: isRead,
       };
+    });
+  }, [permits, resolvedIds, readIds]);
 
-      setAlerts(prev => [newAlert, ...prev]);
-      setToasts(prev => [...prev, newAlert]);
+  const unreadCount = alerts.filter((a) => !a.read).length;
 
-      // Propagate event to audit trail
+  // Sync effect to show toast warnings only for newly arrived database alerts
+  useEffect(() => {
+    if (!permits || permits.length === 0) return;
+
+    const currentAlerts = deriveAlertsFromPermits(permits);
+    const currentIds = currentAlerts.map((a) => a.id);
+
+    if (seenIds.length === 0) {
+      setSeenIds(currentIds);
+      return;
+    }
+
+    const newAlerts = currentAlerts.filter((a) => !seenIds.includes(a.id) && a.status === 'active');
+    if (newAlerts.length > 0) {
+      setToasts((prev) => [...prev, ...newAlerts]);
+      setSeenIds((prev) => [...prev, ...newAlerts.map((a) => a.id)]);
+
       if (onNewAlertTriggered) {
-        onNewAlertTriggered(`System triggered telemetry alert ${newAlert.id.toUpperCase()} on vehicle ${newAlert.truckNumber}`);
+        newAlerts.forEach((alert) => {
+          onNewAlertTriggered(`Live database sync detected alert ${alert.id.toUpperCase()} on vehicle ${alert.truckNumber}`);
+        });
       }
-    }, 45000);
-
-    return () => clearInterval(interval);
-  }, [onNewAlertTriggered]);
+    }
+  }, [permits, seenIds, onNewAlertTriggered]);
 
   const handleMarkAllRead = () => {
-    setAlerts(prev => prev.map(a => ({ ...a, read: true })));
+    const unreadAlerts = alerts.filter((a) => !a.read);
+    setReadIds((prev) => [...prev, ...unreadAlerts.map((a) => a.id)]);
   };
 
   const handleResolveAlert = (id: string) => {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'resolved' as const, read: true } : a));
+    setResolvedIds((prev) => [...prev, id]);
+    setReadIds((prev) => [...prev, id]);
     if (onNewAlertTriggered) {
       onNewAlertTriggered(`Admin resolved telemetry alert ${id.toUpperCase()}`);
     }
   };
 
   const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
   const getAlertIcon = (type: AlertItem['type']) => {
@@ -134,13 +150,13 @@ export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelP
   return (
     <>
       {/* Alert Bell Button */}
-      <div className="relative">
+      <div className="relative flex items-center">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={`p-2 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative ${
+          className={`h-10 w-10 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-md group relative ${
             isOpen
-              ? (theme === 'light' ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30')
-              : (theme === 'light' ? 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200' : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 border-neutral-800/80')
+              ? (theme === 'light' ? 'bg-indigo-100/80 text-indigo-600 border-indigo-300' : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/40')
+              : (theme === 'light' ? 'bg-white hover:bg-indigo-50/50 text-indigo-950 border-indigo-200/80 hover:border-indigo-300' : 'bg-slate-800 hover:bg-slate-700 text-neutral-400 border-slate-700 hover:border-slate-600')
           }`}
           title="Telemetry Alerts"
         >
