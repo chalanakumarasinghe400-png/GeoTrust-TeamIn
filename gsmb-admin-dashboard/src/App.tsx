@@ -355,15 +355,51 @@ export default function App() {
 
   // Page routing state
   const [activePage, setActivePage] = useState<'dashboard' | 'registry' | 'new-register' | 'about' | 'contact' | 'data-explorer' | 'compliance'>(() => {
-    const saved = localStorage.getItem('gsmb_active_page');
+    const hash = window.location.hash.replace('#', '');
     const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer', 'compliance'];
+    if (validPages.includes(hash)) {
+      return hash as any;
+    }
+    const saved = localStorage.getItem('gsmb_active_page');
     return (validPages.includes(saved || '') ? saved : 'dashboard') as any;
   });
   const [registerTab, setRegisterTab] = useState<'site' | 'user' | 'truck'>('site');
 
+  // Push state to browser history whenever activePage changes
   useEffect(() => {
     localStorage.setItem('gsmb_active_page', activePage);
+    const currentHistoryState = window.history.state;
+    if (!currentHistoryState || currentHistoryState.page !== activePage) {
+      window.history.pushState({ page: activePage }, '', `#${activePage}`);
+    }
   }, [activePage]);
+
+  // Listen to browser history navigation (back/forward keys)
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const validPages = ['dashboard', 'registry', 'new-register', 'about', 'contact', 'data-explorer', 'compliance'];
+      if (e.state && e.state.page && validPages.includes(e.state.page)) {
+        setActivePage(e.state.page);
+      } else {
+        const hash = window.location.hash.replace('#', '');
+        if (validPages.includes(hash)) {
+          setActivePage(hash as any);
+        } else {
+          setActivePage('dashboard');
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    // Initial page load fallback to bind state if not set
+    if (!window.history.state) {
+      window.history.replaceState({ page: activePage }, '', `#${activePage}`);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   // Scroll to top on page transition to avoid glitchy jumping layout shifts
   useEffect(() => {
@@ -484,6 +520,17 @@ export default function App() {
   const [fbSubmitted, setFbSubmitted] = useState(false);
   const [nodeSearchQuery, setNodeSearchQuery] = useState('');
   const [isNodeDropdownOpen, setIsNodeDropdownOpen] = useState(false);
+
+  const handleSubmitReportForCancelledPermit = (permit: ProcessedPermit) => {
+    setActivePage('contact');
+    setFbSubject('Coordinate Mismatch Alert');
+    if (permit.originLocationId) {
+      setFbLocationId(permit.originLocationId);
+    } else {
+      setFbLocationId('');
+    }
+    setFbMessage(`Incident report for Cancelled Permit ${permit.permitCode}.\n\nVehicle Plate: ${permit.truckNumber}\nSite Origin ID: ${permit.originLocationId || 'N/A'}\nSite Name: ${permit.originLocationName || 'N/A'}\nTransport Date: ${permit.transportDate.toLocaleDateString()}\nVolume Capacity: ${permit.volumeCubes} m³\n\nObservations: Transport route flagged as CANCELLED during transit. Possible geofencing violation or route deviation detected.`);
+  };
   const [supportTickets, setSupportTickets] = useState<any[]>([
     {
       id: "GSMB-TK-8032",
@@ -1158,7 +1205,7 @@ export default function App() {
   // Handle registering a new administrative node (Mine/Hardware store)
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const errors: Record<string, string> = {};
     if (!regId.trim()) errors.regId = 'Location ID is required.';
     else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(regId.trim())) {
@@ -1710,15 +1757,13 @@ export default function App() {
     return (
       <div className="flex flex-col gap-6 w-full">
         {/* ── Hero Banner ──────────────────────────────────────────────────────── */}
-        <div className="relative w-full overflow-visible" style={{ height: '280px' }}>
+        <div className="relative w-full overflow-visible h-[340px] sm:h-[280px]">
           {/* Background image container - breakout to full viewport width, going behind the header to eliminate any gap/line */}
           <div
-            className="absolute -left-4 -right-4 sm:-left-6 sm:-right-6 lg:-left-8 lg:-right-8 -top-[104px] transition-all duration-300"
+            className="absolute -left-4 -right-4 sm:-left-6 sm:-right-6 lg:-left-8 lg:-right-8 -top-[104px] transition-all duration-300 overflow-hidden"
             style={{
-              height: '400px',
+              height: '460px',
               zIndex: 0,
-              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%)',
-              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)'
             }}
           >
             <img
@@ -1732,25 +1777,42 @@ export default function App() {
               ? 'bg-gradient-to-t from-white/0 via-transparent to-transparent'
               : 'bg-gradient-to-t from-black/30 via-transparent to-transparent'
               }`} />
+            {/* Layered Progressive Glass Blur Transition */}
+            <div className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none overflow-hidden">
+              <div className="absolute inset-0 backdrop-blur-[1px]" style={{ maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%)', WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%)' }} />
+              <div className="absolute inset-0 backdrop-blur-[2px]" style={{ maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 20%, rgba(0,0,0,1) 45%)', WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 20%, rgba(0,0,0,1) 45%)' }} />
+              <div className="absolute inset-0 backdrop-blur-[4px]" style={{ maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,1) 65%)', WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,1) 65%)' }} />
+              <div className="absolute inset-0 backdrop-blur-[8px]" style={{ maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 60%, rgba(0,0,0,1) 85%)', WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 60%, rgba(0,0,0,1) 85%)' }} />
+              <div className="absolute inset-0 backdrop-blur-[16px]" style={{ maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 80%, rgba(0,0,0,1) 100%)', WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 80%, rgba(0,0,0,1) 100%)' }} />
+              {/* Soft color blending layer */}
+              <div 
+                className="absolute inset-0"
+                style={{
+                  background: theme === 'light' 
+                    ? 'linear-gradient(to bottom, rgba(249,250,251,0) 0%, rgba(249,250,251,0.2) 30%, rgba(249,250,251,0.6) 60%, rgba(249,250,251,0.9) 85%, rgba(249,250,251,1) 100%)' 
+                    : 'linear-gradient(to bottom, rgba(10,10,10,0) 0%, rgba(10,10,10,0.2) 30%, rgba(10,10,10,0.6) 60%, rgba(10,10,10,0.9) 85%, rgba(10,10,10,1) 100%)'
+                }}
+              />
+            </div>
           </div>
 
           {/* Content */}
-          <div className="relative z-10 h-full flex items-center justify-between px-8 gap-4">
+          <div className="relative z-10 h-full flex flex-col sm:flex-row sm:items-center justify-center sm:justify-between px-4 sm:px-8 gap-4 py-4 sm:py-0">
             {/* Left: text placed directly on the image background with light colors for maximum visibility */}
-            <div className="flex flex-col gap-2 max-w-2xl">
+            <div className="flex flex-col gap-1.5 sm:gap-2 max-w-2xl text-center sm:text-left">
 
-              <h1 className="text-4xl lg:text-5xl font-black leading-tight tracking-tight text-white hero-title">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-tight tracking-tight text-white hero-title">
                 Sri Lanka Mineral{' '}
                 <span className="text-indigo-300">Telemetry Oversight</span>
               </h1>
-              <p className="text-lg font-bold max-w-xl leading-relaxed text-black hero-desc">
+              <p className="text-sm sm:text-lg font-bold max-w-xl leading-relaxed text-slate-100 sm:text-black hero-desc">
                 Real-time tracking of mineral permits, transit anomalies &amp; compliance telemetry across Sri Lanka.
               </p>
 
             </div>
 
             {/* Right: clock wrapped in a dynamic theme-driven glass card */}
-            <div className={`hidden sm:flex flex-col items-end gap-1.5 select-none shrink-0 font-mono backdrop-blur-md rounded-2xl px-8 py-7 shadow-sm transition-all duration-300 -translate-y-6 ${theme === 'light'
+            <div className={`hidden md:flex flex-col items-end gap-1.5 select-none shrink-0 font-mono backdrop-blur-md rounded-2xl px-8 py-7 shadow-sm transition-all duration-300 -translate-y-6 ${theme === 'light'
               ? 'bg-white/75'
               : 'bg-black/50'
               }`}>
@@ -1983,11 +2045,11 @@ export default function App() {
         {/* Controls toolbar removed - integrated above the map */}
 
         {/* Accountability Audit Log panel */}
-        <AuditLogPanel 
-          logs={auditLogs} 
-          theme={theme} 
-          onDeleteLog={deleteAuditLog} 
-          onClearLogs={clearAuditLogs} 
+        <AuditLogPanel
+          logs={auditLogs}
+          theme={theme}
+          onDeleteLog={deleteAuditLog}
+          onClearLogs={clearAuditLogs}
         />
 
       </div>
@@ -2162,24 +2224,37 @@ export default function App() {
                           )}
                         </td>
                         <td className="py-4 px-5 text-center">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${permit.status === 'ACTIVE'
-                            ? (theme === 'light'
-                              ? 'bg-indigo-50 text-indigo-800 border border-indigo-200/50'
-                              : 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/20')
-                            : permit.status === 'COMPLETED'
+                          <div className="flex items-center justify-center gap-2">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${permit.status === 'ACTIVE'
                               ? (theme === 'light'
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/50'
-                                : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20')
-                              : permit.status === 'CANCELLED'
+                                ? 'bg-indigo-50 text-indigo-800 border border-indigo-200/50'
+                                : 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/20')
+                              : permit.status === 'COMPLETED'
                                 ? (theme === 'light'
-                                  ? 'bg-rose-50 text-rose-800 border border-rose-200/50'
-                                  : 'bg-rose-500/15 text-rose-300 border border-rose-500/20')
-                                : (theme === 'light'
-                                  ? 'bg-amber-50 text-amber-800 border border-amber-200/50'
-                                  : 'bg-amber-500/15 text-amber-300 border border-amber-500/20')
-                            }`}>
-                            {permit.status}
-                          </span>
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/50'
+                                  : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20')
+                                : permit.status === 'CANCELLED'
+                                  ? (theme === 'light'
+                                    ? 'bg-rose-50 text-rose-800 border border-rose-200/50'
+                                    : 'bg-rose-500/15 text-rose-300 border border-rose-500/20')
+                                  : (theme === 'light'
+                                    ? 'bg-amber-50 text-amber-800 border border-amber-200/50'
+                                    : 'bg-amber-500/15 text-amber-300 border border-amber-500/20')
+                              }`}>
+                              {permit.status}
+                            </span>
+                            {permit.status === 'CANCELLED' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSubmitReportForCancelledPermit(permit);
+                                }}
+                                className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm shadow-rose-600/10 flex items-center gap-1 shrink-0"
+                              >
+                                <FileText className="w-2.5 h-2.5" /> Report
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2313,7 +2388,7 @@ export default function App() {
         </div>
 
         {/* Tab toggle */}
-        <div className={`p-1.5 rounded-2xl border flex items-center gap-1.5 w-full sm:w-max transition-all duration-300 ${th === 'light' ? 'bg-white border-neutral-200 shadow-sm' : 'bg-neutral-900 border-neutral-800'}`}>
+        <div className={`p-1.5 rounded-2xl border grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full sm:w-max transition-all duration-300 ${th === 'light' ? 'bg-white border-neutral-200 shadow-sm' : 'bg-neutral-900 border-neutral-800'}`}>
           {TABS.map(tab => (
             <button
               key={tab.key}
@@ -3190,13 +3265,12 @@ export default function App() {
                   placeholder="e.g. 1d9a8d96-6f43-4e67-b74f-f3d0f9e8f08c"
                   value={regId}
                   onChange={(e) => setRegId(e.target.value.toUpperCase())}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${
-                    regErrors.regId
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${regErrors.regId
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                    }`}
                 />
                 {regErrors.regId ? (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1 block">{regErrors.regId}</span>
@@ -3254,13 +3328,12 @@ export default function App() {
                 placeholder="e.g. Anuradhapura Aggregate Quarry"
                 value={regName}
                 onChange={(e) => setRegName(e.target.value)}
-                className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                  regErrors.regName
-                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                    : theme === 'light'
-                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                }`}
+                className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${regErrors.regName
+                  ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                  : theme === 'light'
+                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
               />
               {regErrors.regName && (
                 <span className="text-[10px] text-rose-500 font-semibold mt-1">{regErrors.regName}</span>
@@ -3276,13 +3349,12 @@ export default function App() {
                 placeholder="e.g. 981234567V or 199812345678"
                 value={regUserNic}
                 onChange={(e) => setRegUserNic(e.target.value)}
-                className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                  regErrors.regUserNic
-                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                    : theme === 'light'
-                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                }`}
+                className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${regErrors.regUserNic
+                  ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                  : theme === 'light'
+                    ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                    : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                  }`}
               />
               {regErrors.regUserNic ? (
                 <span className="text-[10px] text-rose-500 font-semibold mt-1 block">{regErrors.regUserNic}</span>
@@ -3301,13 +3373,12 @@ export default function App() {
                   min="0"
                   value={regInventory}
                   onChange={(e) => setRegInventory(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${
-                    regErrors.regInventory
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${regErrors.regInventory
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                    }`}
                 />
                 {regErrors.regInventory && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{regErrors.regInventory}</span>
@@ -3323,13 +3394,12 @@ export default function App() {
                   min="1"
                   value={regMaxCapacity}
                   onChange={(e) => setRegMaxCapacity(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${
-                    regErrors.regMaxCapacity
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${regErrors.regMaxCapacity
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                    }`}
                 />
                 {regErrors.regMaxCapacity ? (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1 block">{regErrors.regMaxCapacity}</span>
@@ -3381,13 +3451,12 @@ export default function App() {
                     type="text"
                     value={regLat}
                     onChange={(e) => setRegLat(e.target.value)}
-                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${
-                      regErrors.regLat
-                        ? 'border-rose-500 bg-rose-500/5 focus:ring-1 focus:ring-rose-500 text-rose-900 dark:text-rose-200'
-                        : theme === 'light'
-                          ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-200'
-                    }`}
+                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${regErrors.regLat
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-1 focus:ring-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200'
+                      }`}
                   />
                   {regErrors.regLat && (
                     <span className="text-[9px] text-rose-500 font-semibold mt-0.5">{regErrors.regLat}</span>
@@ -3400,13 +3469,12 @@ export default function App() {
                     type="text"
                     value={regLng}
                     onChange={(e) => setRegLng(e.target.value)}
-                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${
-                      regErrors.regLng
-                        ? 'border-rose-500 bg-rose-500/5 focus:ring-1 focus:ring-rose-500 text-rose-900 dark:text-rose-200'
-                        : theme === 'light'
-                          ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-200'
-                    }`}
+                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${regErrors.regLng
+                      ? 'border-rose-500 bg-rose-500/5 focus:ring-1 focus:ring-rose-500 text-rose-900 dark:text-rose-200'
+                      : theme === 'light'
+                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-200'
+                      }`}
                   />
                   {regErrors.regLng && (
                     <span className="text-[9px] text-rose-500 font-semibold mt-0.5">{regErrors.regLng}</span>
@@ -3882,7 +3950,7 @@ export default function App() {
 
   const handleUserRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const errors: Record<string, string> = {};
     if (!userRegName.trim()) errors.userRegName = 'Full Name is required.';
     if (!userRegNic.trim()) errors.userRegNic = 'NIC is required.';
@@ -3997,7 +4065,7 @@ export default function App() {
 
   const handleTruckRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const errors: Record<string, string> = {};
     if (!truckRegNumber.trim()) errors.truckRegNumber = 'Truck Plate Number is required.';
     if (!truckRegChasis.trim()) errors.truckRegChasis = 'Chassis Number is required.';
@@ -4135,13 +4203,12 @@ export default function App() {
                   placeholder="e.g. Priyantha Bandara"
                   value={userRegName}
                   onChange={(e) => setUserRegName(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                    userRegErrors.userRegName
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${userRegErrors.userRegName
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                    }`}
                 />
                 {userRegErrors.userRegName && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegName}</span>
@@ -4157,13 +4224,12 @@ export default function App() {
                   placeholder="e.g. 981234567V or 199812345678"
                   value={userRegNic}
                   onChange={(e) => setUserRegNic(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                    userRegErrors.userRegNic
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${userRegErrors.userRegNic
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                    }`}
                 />
                 {userRegErrors.userRegNic && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegNic}</span>
@@ -4181,13 +4247,12 @@ export default function App() {
                   placeholder="e.g. operator@geotrust.com"
                   value={userRegEmail}
                   onChange={(e) => setUserRegEmail(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                    userRegErrors.userRegEmail
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${userRegErrors.userRegEmail
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                    }`}
                 />
                 {userRegErrors.userRegEmail && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegEmail}</span>
@@ -4203,13 +4268,12 @@ export default function App() {
                   placeholder="e.g. +94771234567"
                   value={userRegPhone}
                   onChange={(e) => setUserRegPhone(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                    userRegErrors.userRegPhone
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${userRegErrors.userRegPhone
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                    }`}
                 />
                 {userRegErrors.userRegPhone && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegPhone}</span>
@@ -4227,13 +4291,12 @@ export default function App() {
                   placeholder="Minimum 6 characters"
                   value={userRegPassword}
                   onChange={(e) => setUserRegPassword(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${
-                    userRegErrors.userRegPassword
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 font-mono transition-colors border ${userRegErrors.userRegPassword
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500'
+                    }`}
                 />
                 {userRegErrors.userRegPassword && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{userRegErrors.userRegPassword}</span>
@@ -4331,13 +4394,12 @@ export default function App() {
                   placeholder="e.g. CP/NWP LA - 1234"
                   value={truckRegNumber}
                   onChange={(e) => setTruckRegNumber(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                    truckRegErrors.truckRegNumber
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${truckRegErrors.truckRegNumber
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
+                    }`}
                 />
                 {truckRegErrors.truckRegNumber && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{truckRegErrors.truckRegNumber}</span>
@@ -4353,13 +4415,12 @@ export default function App() {
                   placeholder="e.g. MBH382D9S8382928A"
                   value={truckRegChasis}
                   onChange={(e) => setTruckRegChasis(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                    truckRegErrors.truckRegChasis
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${truckRegErrors.truckRegChasis
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
+                    }`}
                 />
                 {truckRegErrors.truckRegChasis && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{truckRegErrors.truckRegChasis}</span>
@@ -4377,13 +4438,12 @@ export default function App() {
                   placeholder="e.g. 981234567V or 199812345678"
                   value={truckRegOwnerNic}
                   onChange={(e) => setTruckRegOwnerNic(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                    truckRegErrors.truckRegOwnerNic
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${truckRegErrors.truckRegOwnerNic
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
+                    }`}
                 />
                 {truckRegErrors.truckRegOwnerNic && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{truckRegErrors.truckRegOwnerNic}</span>
@@ -4400,13 +4460,12 @@ export default function App() {
                   placeholder="e.g. 10.0"
                   value={truckRegCapacity}
                   onChange={(e) => setTruckRegCapacity(e.target.value)}
-                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${
-                    truckRegErrors.truckRegCapacity
-                      ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
-                      : theme === 'light'
-                        ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
-                  }`}
+                  className={`rounded-xl p-3 text-xs focus:outline-none focus:ring-1 transition-colors border ${truckRegErrors.truckRegCapacity
+                    ? 'border-rose-500 bg-rose-500/5 focus:ring-rose-500 focus:border-rose-500 text-rose-900 dark:text-rose-200'
+                    : theme === 'light'
+                      ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-indigo-500/20 focus:border-indigo-500'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-200 focus:ring-indigo-500/30'
+                    }`}
                 />
                 {truckRegErrors.truckRegCapacity && (
                   <span className="text-[10px] text-rose-500 font-semibold mt-1">{truckRegErrors.truckRegCapacity}</span>
@@ -4452,10 +4511,10 @@ export default function App() {
       <div className="flex flex-col gap-6 w-full animate-fadeIn">
         {/* Toggle Selector */}
         <div className="flex justify-center mb-2">
-          <div className={`p-1.5 rounded-2xl border flex items-center gap-1.5 shadow-sm transition-all duration-300 ${theme === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}>
+          <div className={`p-1.5 rounded-2xl border grid grid-cols-3 sm:flex sm:items-center gap-1 sm:gap-1.5 shadow-sm transition-all duration-300 ${theme === 'light' ? 'bg-white border-neutral-200' : 'bg-neutral-900 border-neutral-800'}`}>
             <button
               onClick={() => setRegisterTab('site')}
-              className={`py-2 px-6 rounded-xl text-xs font-bold uppercase transition-all flex items-center gap-2 cursor-pointer ${registerTab === 'site'
+              className={`py-2 px-1 sm:px-6 rounded-xl text-[10px] sm:text-xs font-bold uppercase transition-all flex items-center justify-center gap-1 sm:gap-2 cursor-pointer ${registerTab === 'site'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : theme === 'light'
                   ? 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
@@ -4463,11 +4522,12 @@ export default function App() {
                 }`}
             >
               <HardHat className="w-3.5 h-3.5" />
-              Register Site
+              <span className="hidden xs:inline">Register Site</span>
+              <span className="inline xs:hidden">Site</span>
             </button>
             <button
               onClick={() => setRegisterTab('user')}
-              className={`py-2 px-6 rounded-xl text-xs font-bold uppercase transition-all flex items-center gap-2 cursor-pointer ${registerTab === 'user'
+              className={`py-2 px-1 sm:px-6 rounded-xl text-[10px] sm:text-xs font-bold uppercase transition-all flex items-center justify-center gap-1 sm:gap-2 cursor-pointer ${registerTab === 'user'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : theme === 'light'
                   ? 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
@@ -4475,11 +4535,12 @@ export default function App() {
                 }`}
             >
               <User className="w-3.5 h-3.5" />
-              Register User
+              <span className="hidden xs:inline">Register User</span>
+              <span className="inline xs:hidden">User</span>
             </button>
             <button
               onClick={() => setRegisterTab('truck')}
-              className={`py-2 px-6 rounded-xl text-xs font-bold uppercase transition-all flex items-center gap-2 cursor-pointer ${registerTab === 'truck'
+              className={`py-2 px-1 sm:px-6 rounded-xl text-[10px] sm:text-xs font-bold uppercase transition-all flex items-center justify-center gap-1 sm:gap-2 cursor-pointer ${registerTab === 'truck'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : theme === 'light'
                   ? 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
@@ -4487,7 +4548,8 @@ export default function App() {
                 }`}
             >
               <Truck className="w-3.5 h-3.5" />
-              Register Truck
+              <span className="hidden xs:inline">Register Truck</span>
+              <span className="inline xs:hidden">Truck</span>
             </button>
           </div>
         </div>
@@ -4655,7 +4717,7 @@ export default function App() {
                 <XCircle className="w-4.5 h-4.5" />
               </button>
 
-              <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${error
+              <div className={`hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${error
                 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
                 : (loading || isSyncing)
                   ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 animate-pulse'
@@ -4670,13 +4732,13 @@ export default function App() {
         </header>
 
         {/* Mobile Navigation Drawer - Sticky and elevated above Map elements */}
-        <div className={`xl:hidden mt-2 mx-auto max-w-[88%] border rounded-2xl px-4 py-2 flex items-center justify-around gap-1 text-[10px] font-black uppercase tracking-wider sticky top-[100px] z-[9998] shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] transition-all duration-300 ${theme === 'light'
+        <div className={`xl:hidden mt-2 mx-auto w-[92%] sm:max-w-[88%] border rounded-2xl p-2.5 grid grid-cols-3 sm:flex sm:items-center sm:justify-around gap-2 sm:gap-1 text-[10px] font-black uppercase tracking-wider sticky top-[100px] z-[9998] shadow-[0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] transition-all duration-300 ${theme === 'light'
           ? 'border-indigo-200/90 bg-indigo-50 shadow-indigo-100/30 text-neutral-700'
           : 'border-slate-800 bg-slate-900 shadow-indigo-950/20 text-neutral-300'
           }`}>
           <button
             onClick={() => setActivePage('dashboard')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'dashboard'
+            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'dashboard'
               ? theme === 'light'
                 ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
                 : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
@@ -4687,7 +4749,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActivePage('data-explorer')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'data-explorer'
+            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'data-explorer'
               ? theme === 'light'
                 ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
                 : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
@@ -4698,7 +4760,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActivePage('registry')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'registry'
+            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'registry'
               ? theme === 'light'
                 ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
                 : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
@@ -4709,7 +4771,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActivePage('new-register')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'new-register'
+            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'new-register'
               ? theme === 'light'
                 ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
                 : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
@@ -4720,7 +4782,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActivePage('contact')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'contact'
+            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'contact'
               ? theme === 'light'
                 ? 'text-indigo-600 bg-white border-indigo-200/60 font-black font-extrabold shadow-sm'
                 : 'text-white bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
@@ -4731,7 +4793,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActivePage('compliance')}
-            className={`py-1.5 px-2.5 rounded-lg border transition-all ${activePage === 'compliance'
+            className={`text-center py-2 sm:py-1.5 px-1 sm:px-2.5 rounded-lg border transition-all ${activePage === 'compliance'
               ? theme === 'light'
                 ? 'text-rose-600 bg-white border-rose-200/60 font-black font-extrabold shadow-sm'
                 : 'text-rose-400 bg-slate-950 border-slate-800 font-black font-extrabold shadow-md'
@@ -4771,93 +4833,93 @@ export default function App() {
                   </motion.div>
                 )}
 
-            {/* ==================== 2. DATA EXPLORER ==================== */}
-            {activePage === 'data-explorer' && (
-              <motion.div
-                key="data-explorer"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.28, ease: "easeInOut" }}
-                className="w-full page-font-large"
-              >
-                {renderDataExplorer()}
-              </motion.div>
-            )}
+                {/* ==================== 2. DATA EXPLORER ==================== */}
+                {activePage === 'data-explorer' && (
+                  <motion.div
+                    key="data-explorer"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    className="w-full page-font-large"
+                  >
+                    {renderDataExplorer()}
+                  </motion.div>
+                )}
 
-            {/* ==================== 3. PERMIT LEDGER REGISTRY ==================== */}
-            {activePage === 'registry' && (
-              <motion.div
-                key="registry"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.28, ease: "easeInOut" }}
-                className="w-full page-font-large"
-              >
-                {renderRegistry()}
-              </motion.div>
-            )}
+                {/* ==================== 3. PERMIT LEDGER REGISTRY ==================== */}
+                {activePage === 'registry' && (
+                  <motion.div
+                    key="registry"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    className="w-full page-font-large"
+                  >
+                    {renderRegistry()}
+                  </motion.div>
+                )}
 
-            {/* ==================== 3. COMBINED NEW REGISTRATION ==================== */}
-            {activePage === 'new-register' && (
-              <motion.div
-                key="new-register"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.28, ease: "easeInOut" }}
-                className="w-full page-font-large"
-              >
-                {renderNewRegister()}
-              </motion.div>
-            )}
+                {/* ==================== 3. COMBINED NEW REGISTRATION ==================== */}
+                {activePage === 'new-register' && (
+                  <motion.div
+                    key="new-register"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    className="w-full page-font-large"
+                  >
+                    {renderNewRegister()}
+                  </motion.div>
+                )}
 
-            {/* ==================== 4. STATUTORY GUIDELINES ==================== */}
-            {activePage === 'about' && (
-              <motion.div
-                key="about"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.28, ease: "easeInOut" }}
-                className="w-full page-font-large"
-              >
-                {renderAbout()}
-              </motion.div>
-            )}
+                {/* ==================== 4. STATUTORY GUIDELINES ==================== */}
+                {activePage === 'about' && (
+                  <motion.div
+                    key="about"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    className="w-full page-font-large"
+                  >
+                    {renderAbout()}
+                  </motion.div>
+                )}
 
-            {/* ==================== 5. INSPECTOR DISPATCHES & SUPPORT ==================== */}
-            {activePage === 'contact' && (
-              <motion.div
-                key="contact"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.28, ease: "easeInOut" }}
-                className="w-full page-font-large"
-              >
-                {renderContact()}
-              </motion.div>
-            )}
+                {/* ==================== 5. INSPECTOR DISPATCHES & SUPPORT ==================== */}
+                {activePage === 'contact' && (
+                  <motion.div
+                    key="contact"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    className="w-full page-font-large"
+                  >
+                    {renderContact()}
+                  </motion.div>
+                )}
 
-            {/* ==================== 6. COMPLIANCE & FRAUD ANALYTICS HUB ==================== */}
-            {activePage === 'compliance' && (
-              <motion.div
-                key="compliance"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.28, ease: "easeInOut" }}
-                className="w-full page-font-large"
-              >
-                <ComplianceHub
-                  permits={allRawPermits}
-                  records={data.records}
-                  theme={theme}
-                />
-              </motion.div>
-            )}
+                {/* ==================== 6. COMPLIANCE & FRAUD ANALYTICS HUB ==================== */}
+                {activePage === 'compliance' && (
+                  <motion.div
+                    key="compliance"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    className="w-full page-font-large"
+                  >
+                    <ComplianceHub
+                      permits={allRawPermits}
+                      records={data.records}
+                      theme={theme}
+                    />
+                  </motion.div>
+                )}
               </>
             )}
           </AnimatePresence>

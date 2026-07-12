@@ -57,8 +57,8 @@ function TransitMap({
     const centerLng = (originLng + destLng) / 2;
 
     const map = L.map(containerRef.current, {
-      scrollWheelZoom: false,
-      zoomControl: false,
+      scrollWheelZoom: true,
+      zoomControl: true,
       dragging: true,
       tap: true,
     }).setView([centerLat, centerLng], 11);

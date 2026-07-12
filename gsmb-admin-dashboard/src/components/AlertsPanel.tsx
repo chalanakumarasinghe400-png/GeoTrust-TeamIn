@@ -249,7 +249,7 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered, 
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 15, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className={`absolute right-0 top-full mt-3 w-[400px] max-h-[500px] rounded-2xl border shadow-2xl flex flex-col overflow-hidden z-[9995] ${theme === 'light' ? 'bg-white border-slate-200 text-black' : 'bg-slate-900 border-slate-800 text-slate-100'
+                className={`fixed sm:absolute top-16 sm:top-full left-4 sm:left-auto right-4 sm:right-0 mt-3 w-[calc(100vw-32px)] sm:w-[400px] max-h-[460px] sm:max-h-[500px] rounded-2xl border shadow-2xl flex flex-col overflow-hidden z-[9995] ${theme === 'light' ? 'bg-white border-slate-200 text-black' : 'bg-slate-900 border-slate-800 text-slate-100'
                   }`}
               >
                 {/* Header */}
@@ -342,8 +342,8 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered, 
         </AnimatePresence>
       </div>
 
-      {/* Floating Toast Alerts (Bottom-Right) */}
-      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 max-w-[380px] pointer-events-none">
+      {/* Floating Toast Alerts (Bottom-Right/Bottom-Center on mobile) */}
+      <div className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-[9999] flex flex-col gap-3 max-w-[380px] pointer-events-none">
         <AnimatePresence>
           {toasts.map(toast => (
             <motion.div
@@ -359,7 +359,7 @@ export default function AlertsPanel({ theme, permits = [], onNewAlertTriggered, 
                   onSelectPermit(permitId);
                 }
               }}
-              className={`p-4 rounded-2xl border shadow-2xl flex items-start gap-3 pointer-events-auto w-[360px] cursor-pointer hover:scale-[1.02] transition-transform duration-200 ${theme === 'light'
+              className={`p-4 rounded-2xl border shadow-2xl flex items-start gap-3 pointer-events-auto w-full sm:w-[360px] cursor-pointer hover:scale-[1.02] transition-transform duration-200 ${theme === 'light'
                 ? 'bg-white border-rose-100 text-black shadow-xl'
                 : 'bg-slate-900 border-rose-950/40 text-slate-100 shadow-2xl'
                 }`}

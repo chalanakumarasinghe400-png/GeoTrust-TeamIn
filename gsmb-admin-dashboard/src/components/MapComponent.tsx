@@ -368,29 +368,44 @@ export default function MapComponent({
       </div>
 
       {/* Map Control Buttons overlay */}
-      <div className="absolute bottom-4 right-4 z-[1000] flex gap-2">
+      <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-[1000] flex justify-end gap-1.5 sm:gap-2">
         {/* Map Type Toggle */}
         <button
           onClick={() => setMapType(prev => prev === 'streets' ? 'satellite' : 'streets')}
-          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${theme === 'light'
+          className={`cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${theme === 'light'
               ? 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 shadow-md'
               : 'bg-neutral-900 border-neutral-800 text-white hover:bg-neutral-800 shadow-2xl'
             }`}
         >
-          <Layers className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-          <span>{mapType === 'streets' ? 'Satellite View' : 'Map View'}</span>
+          <Layers className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-indigo-500 dark:text-indigo-400" />
+          <span>
+            {mapType === 'streets' ? (
+              <>
+                <span className="hidden sm:inline">Satellite View</span>
+                <span className="inline sm:hidden">Satellite</span>
+              </>
+            ) : (
+              <>
+                <span className="hidden sm:inline">Map View</span>
+                <span className="inline sm:hidden">Map</span>
+              </>
+            )}
+          </span>
         </button>
 
         {/* Whole Country View */}
         <button
           onClick={handleResetView}
-          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${theme === 'light'
+          className={`cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${theme === 'light'
               ? 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 hover:border-neutral-300 shadow-md'
               : 'bg-neutral-900 border-neutral-800 text-white hover:bg-neutral-800 hover:border-neutral-700 shadow-2xl'
             }`}
         >
-          <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400 animate-spin-slow" />
-          <span>View Whole Country</span>
+          <Globe className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-indigo-500 dark:text-indigo-400 animate-spin-slow" />
+          <span>
+            <span className="hidden sm:inline">View Whole Country</span>
+            <span className="inline sm:hidden">Sri Lanka</span>
+          </span>
         </button>
       </div>
 
