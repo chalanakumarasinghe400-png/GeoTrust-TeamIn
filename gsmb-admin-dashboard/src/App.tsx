@@ -2175,7 +2175,7 @@ export default function App() {
       <button
         onClick={e => { e.stopPropagation(); handleCopyId(id); }}
         title="Copy full ID"
-        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-colors shrink-0 ${copiedId === id
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xl text-[10px] font-bold border cursor-pointer transition-colors shrink-0 ${copiedId === id
           ? th === 'light' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
           : th === 'light' ? 'border-neutral-200 bg-neutral-50 text-neutral-500 hover:bg-neutral-100' : 'border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
           }`}
@@ -2294,7 +2294,7 @@ export default function App() {
                             }`}>{hwCount}</span>
                         </td>
                         <td className={`${tdBase} text-center`}>
-                          <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
+                          <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
                             <Eye className="w-3 h-3" /> View
                           </button>
                         </td>
@@ -2331,7 +2331,7 @@ export default function App() {
                       <td className={tdBase}><span className="font-mono font-bold">{m.maximum_cubes ?? 'N/A'}</span> m³</td>
                       <td className={`${tdBase} text-xs font-mono`}>{m.latitude != null ? `${Number(m.latitude).toFixed(4)}, ${Number(m.longitude).toFixed(4)}` : 'N/A'}</td>
                       <td className={`${tdBase} text-center`}>
-                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'}`}>
+                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-emerald-500/25 bg-emerald-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
                           <Eye className="w-3 h-3" /> View
                         </button>
                       </td>
@@ -2367,7 +2367,7 @@ export default function App() {
                       <td className={tdBase}><span className="font-mono font-bold">{h.maximum_cubes ?? 'N/A'}</span> m³</td>
                       <td className={`${tdBase} text-xs font-mono`}>{h.latitude != null ? `${Number(h.latitude).toFixed(4)}, ${Number(h.longitude).toFixed(4)}` : 'N/A'}</td>
                       <td className={`${tdBase} text-center`}>
-                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
+                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}>
                           <Eye className="w-3 h-3" /> View
                         </button>
                       </td>
@@ -2396,7 +2396,7 @@ export default function App() {
                       <td className={`${tdBase} text-xs`}>{getUserNameById(t.user_id)}</td>
                       <td className={tdBase}><span className="font-mono">{t.capacity != null ? `${t.capacity} m³` : 'N/A'}</span></td>
                       <td className={`${tdBase} text-center`}>
-                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-amber-500/25 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'}`}>
+                        <button className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border cursor-pointer transition-colors ${th === 'light' ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-amber-500/25 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'}`}>
                           <Eye className="w-3 h-3" /> View
                         </button>
                       </td>
@@ -3217,7 +3217,7 @@ export default function App() {
                       setRegLat(preset.lat);
                       setRegLng(preset.lng);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${regLat === preset.lat && regLng === preset.lng
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${regLat === preset.lat && regLng === preset.lng
                       ? 'bg-indigo-600/20 border-indigo-500 text-indigo-600 dark:text-white'
                       : theme === 'light'
                         ? 'bg-white border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
@@ -3237,7 +3237,7 @@ export default function App() {
                     type="text"
                     value={regLat}
                     onChange={(e) => setRegLat(e.target.value)}
-                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200'}`}
+                    className={`rounded-xl p-2 text-xs font-mono transition-colors focus:outline-none border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200'}`}
                   />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -3247,7 +3247,7 @@ export default function App() {
                     type="text"
                     value={regLng}
                     onChange={(e) => setRegLng(e.target.value)}
-                    className={`rounded-lg p-2 text-xs font-mono transition-colors focus:outline-none border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200'}`}
+                    className={`rounded-xl p-2 text-xs font-mono transition-colors focus:outline-none border ${theme === 'light' ? 'bg-white border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500' : 'bg-neutral-950 border-neutral-800 text-neutral-200'}`}
                   />
                 </div>
               </div>
@@ -3602,7 +3602,7 @@ export default function App() {
                       value={nodeSearchQuery}
                       onChange={(e) => setNodeSearchQuery(e.target.value)}
                       onClick={(e) => e.stopPropagation()} // Prevent closing dropdown on input click
-                      className={`w-full rounded-lg pl-8 pr-3 py-2 text-xs focus:outline-none border ${theme === 'light'
+                      className={`w-full rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none border ${theme === 'light'
                         ? 'bg-neutral-50 border-neutral-200 text-neutral-800 focus:ring-1 focus:ring-indigo-500'
                         : 'bg-neutral-900 border-neutral-800 text-neutral-200 focus:ring-1 focus:ring-indigo-500'
                         }`}
@@ -3619,7 +3619,7 @@ export default function App() {
                         setIsNodeDropdownOpen(false);
                         setNodeSearchQuery('');
                       }}
-                      className={`p-2 rounded-lg text-xs cursor-pointer hover:bg-indigo-600/10 transition-colors ${!fbLocationId ? 'font-black text-indigo-500 bg-indigo-500/5' : ''}`}
+                      className={`p-2 rounded-xl text-xs cursor-pointer hover:bg-indigo-600/10 transition-colors ${!fbLocationId ? 'font-black text-indigo-500 bg-indigo-500/5' : ''}`}
                     >
                       -- Select Administrative Node (Auto-assigned if empty) --
                     </div>
@@ -3638,7 +3638,7 @@ export default function App() {
                           setIsNodeDropdownOpen(false);
                           setNodeSearchQuery('');
                         }}
-                        className={`p-2 rounded-lg text-xs cursor-pointer hover:bg-indigo-600/10 transition-colors ${fbLocationId === rec.id ? 'font-black text-indigo-500 bg-indigo-500/5' : ''}`}
+                        className={`p-2 rounded-xl text-xs cursor-pointer hover:bg-indigo-600/10 transition-colors ${fbLocationId === rec.id ? 'font-black text-indigo-500 bg-indigo-500/5' : ''}`}
                       >
                         <span className="font-bold">[{(rec.type || '').toUpperCase()}]</span> {rec.name || ''} <span className="text-neutral-500">({rec.region || ''})</span>
                       </div>
@@ -4043,184 +4043,144 @@ export default function App() {
         <div className={`absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[135px] ${theme === 'light' ? 'bg-indigo-500/[0.01]' : 'bg-indigo-500/[0.02]'}`}></div>
       </div>
 
-      <div className="relative z-10 w-full">
-        {/* Top Header Navigation */}
-        <header className={`border-b backdrop-blur-md sticky top-0 z-[9999] transition-all duration-300 ${theme === 'light' ? 'border-neutral-200 bg-white/80' : 'border-neutral-900 bg-neutral-950/80'
-          }`}>
-          <div className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActivePage('dashboard')}>
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                <ShieldAlert className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div>
-                  <span className={`text-sm font-black tracking-wider uppercase transition-colors ${theme === 'light' ? 'text-neutral-900' : 'text-neutral-100'
-                    }`}>GSMB GeoTrust</span>
-                  <p className="text-[9px] text-indigo-400 font-mono tracking-widest uppercase font-bold leading-none mt-0.5">Oversight Portal</p>
-                </div>
-                {/* Tiny Connection Dot Indicator */}
-                <div
-                  className={`w-2 h-2 rounded-full shrink-0 ${
-                    error
-                      ? 'bg-rose-500 animate-pulse'
-                      : (loading || isSyncing)
-                        ? 'bg-amber-500 animate-pulse'
-                        : 'bg-emerald-500'
-                  }`}
-                  title={error ? 'Offline' : (loading || isSyncing) ? 'Syncing...' : 'Connected to Database'}
-                />
-              </div>
+      <aside className={`fixed left-0 top-0 h-full z-[9998] border-r flex flex-col justify-between transition-all duration-300 w-16 md:w-56 ${
+        theme === 'light' ? 'bg-white border-neutral-200 shadow-sm' : 'bg-neutral-950 border-neutral-900 shadow-md'
+      }`}>
+        {/* Sidebar Top: Branding */}
+        <div className="p-4 flex flex-col gap-4">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActivePage('dashboard')}>
+            <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0">
+              <ShieldAlert className="w-4 h-4 text-white" />
             </div>
-
-            {/* Redesigned Navigation Tab Capsule */}
-            <nav className={`hidden md:flex items-center gap-1.5 p-1 rounded-2xl border transition-all ${
-              theme === 'light'
-                ? 'bg-neutral-100/80 border-neutral-200/60'
-                : 'bg-neutral-900/40 border-neutral-800/80'
-            } text-[11px] font-black uppercase tracking-wider`}>
-              {[
-                { key: 'dashboard', label: 'Dashboard' },
-                { key: 'data-explorer', label: 'Data Explorer' },
-                { key: 'registry', label: 'Permit List' },
-                { key: 'about', label: 'Guidelines' },
-                { key: 'contact', label: 'Support & Reports' }
-              ].map((tab) => {
-                const isActive = activePage === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActivePage(tab.key as any)}
-                    className={`px-4 py-2 rounded-xl transition-all duration-200 cursor-pointer ${
-                      isActive
-                        ? (theme === 'light'
-                          ? 'bg-white text-indigo-600 shadow-sm border border-neutral-200/40'
-                          : 'bg-neutral-800 text-white shadow-md border border-neutral-700/30')
-                        : (theme === 'light'
-                          ? 'text-neutral-600 hover:text-neutral-950 border border-transparent'
-                          : 'text-neutral-400 hover:text-white border border-transparent')
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
-
-            <div className="flex items-center gap-2">
-              {/* Unified Controls Dock */}
-              <div className={`flex items-center gap-1.5 p-1 rounded-2xl border transition-all ${
-                theme === 'light' ? 'bg-neutral-100/85 border-neutral-200/50' : 'bg-neutral-900/60 border-neutral-800/50'
-              }`}>
-                {/* Refresh Action */}
-                <button
-                  onClick={() => loadData(false)}
-                  disabled={loading || isSyncing}
-                  className={`p-1.5 rounded-lg disabled:opacity-50 transition-all cursor-pointer text-neutral-500 hover:text-neutral-800 dark:hover:text-white`}
-                  title="Refresh Data"
-                >
-                  <RotateCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin' : ''}`} />
-                </button>
-
-                {/* Save Report Action */}
-                <button
-                  onClick={handleExport}
-                  disabled={filteredRecords.length === 0}
-                  className={`p-1.5 rounded-lg disabled:opacity-50 transition-all cursor-pointer text-neutral-500 hover:text-neutral-800 dark:hover:text-white`}
-                  title="Save Report"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-
-                {/* Telemetry Alert Bell Center (Synced to Database permits) */}
-                <AlertsPanel
-                  theme={theme}
-                  alerts={realAlerts}
-                  onNewAlertTriggered={(msg) => triggerAuditLog('TELEMETRY ALERT', msg)}
-                />
-
-                {/* Theme Toggle Button */}
-                <button
-                  onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                  className={`p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer text-neutral-500 hover:text-neutral-800 dark:hover:text-white`}
-                  title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                  id="theme-toggle-btn"
-                >
-                  <div className="relative w-4 h-4 flex items-center justify-center">
-                    <Sun className={`w-4 h-4 absolute text-amber-500 transition-all duration-500 ease-out ${theme === 'light' ? 'rotate-0 scale-100 opacity-100' : 'rotate-90 scale-0 opacity-0'
-                      }`} />
-                    <Moon className={`w-4 h-4 absolute text-indigo-400 transition-all duration-500 ease-out ${theme === 'dark' ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'
-                      }`} />
-                  </div>
-                </button>
-
-                {/* Sign Out Button */}
-                <button
-                  onClick={handleLogout}
-                  className={`p-1.5 rounded-lg transition-all cursor-pointer text-neutral-500 hover:text-rose-500 dark:hover:text-rose-400`}
-                  title="Sign Out"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* User Avatar Badge */}
-              <div className={`hidden lg:flex items-center gap-2 pl-2 border-l ${
-                theme === 'light' ? 'border-neutral-200' : 'border-neutral-800'
-              }`}>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-md shadow-indigo-500/10">
-                  {authUser?.email ? authUser.email[0].toUpperCase() : 'D'}
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[10px] font-black tracking-wider leading-none text-neutral-800 dark:text-neutral-200">
-                    {authUser?.email ? authUser.email.split('@')[0] : 'Administrator'}
-                  </span>
-                  <span className="text-[8px] font-bold text-indigo-400 font-mono tracking-wide mt-0.5 font-sans">GSMB Staff</span>
-                </div>
-              </div>
-
+            <div className="hidden md:flex flex-col text-left">
+              <span className={`text-xs font-black tracking-wider uppercase transition-colors ${
+                theme === 'light' ? 'text-neutral-900' : 'text-neutral-100'
+              }`}>GSMB GeoTrust</span>
+              <p className="text-[8px] text-indigo-400 font-mono tracking-widest uppercase font-bold leading-none mt-0.5">Oversight Portal</p>
             </div>
-
           </div>
-        </header>
-
-        {/* Mobile Navigation Drawer - Sticky and elevated above Map elements */}
-        <div className={`md:hidden border-b px-4 py-2 flex items-center justify-around gap-1 text-[10px] font-black uppercase tracking-wider sticky top-16 z-[9998] transition-colors duration-300 ${theme === 'light'
-          ? 'border-neutral-200 bg-white/80 text-neutral-600'
-          : 'border-neutral-900 bg-neutral-950/80 text-neutral-400'
-          }`}>
-          <button
-            onClick={() => setActivePage('dashboard')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'dashboard' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
-          >
-            Home
-          </button>
-          <button
-            onClick={() => setActivePage('data-explorer')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'data-explorer' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
-          >
-            Explorer
-          </button>
-          <button
-            onClick={() => setActivePage('registry')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'registry' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
-          >
-            Permits
-          </button>
-          <button
-            onClick={() => setActivePage('new-register')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'new-register' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
-          >
-            Register
-          </button>
-          <button
-            onClick={() => setActivePage('contact')}
-            className={`py-1.5 px-2.5 rounded-lg transition-all ${activePage === 'contact' ? (theme === 'light' ? 'text-indigo-600 bg-indigo-50 font-black font-extrabold' : 'text-indigo-400 bg-indigo-500/10 font-black font-extrabold') : ''}`}
-          >
-            Support
-          </button>
+          
+          {/* Connection status indicator in sidebar */}
+          <div className="flex items-center gap-2 px-2 py-1 rounded-xl text-[9px] font-mono border bg-neutral-50/50 dark:bg-neutral-900/40 border-neutral-200/40 dark:border-neutral-800/40 justify-center md:justify-start">
+            <div
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                error
+                  ? 'bg-rose-500 animate-pulse'
+                  : (loading || isSyncing)
+                    ? 'bg-amber-500 animate-pulse'
+                    : 'bg-emerald-500'
+              }`}
+            />
+            <span className="hidden md:inline text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-wider">
+              {error ? 'Offline' : (loading || isSyncing) ? 'Syncing...' : 'Connected'}
+            </span>
+          </div>
         </div>
 
+        {/* Sidebar Middle: Navigation Menu Links */}
+        <nav className="flex-1 px-3 py-4 flex flex-col gap-2 overflow-y-auto">
+          {[
+            { key: 'dashboard', label: 'Dashboard', icon: Boxes },
+            { key: 'data-explorer', label: 'Data Explorer', icon: Activity },
+            { key: 'registry', label: 'Permit List', icon: FileText },
+            { key: 'about', label: 'Guidelines', icon: Info },
+            { key: 'contact', label: 'Support & Reports', icon: MessageSquare }
+          ].map((tab) => {
+            const isActive = activePage === tab.key;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActivePage(tab.key as any)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer justify-center md:justify-start ${
+                  isActive
+                    ? (theme === 'light'
+                      ? 'bg-indigo-50 text-indigo-600 font-extrabold shadow-sm border border-indigo-100/80'
+                      : 'bg-indigo-500/10 text-indigo-400 font-extrabold border border-indigo-500/20')
+                    : (theme === 'light'
+                      ? 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950 border border-transparent'
+                      : 'text-neutral-400 hover:bg-neutral-900/60 hover:text-white border border-transparent')
+                }`}
+                title={tab.label}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? (theme === 'light' ? 'text-indigo-600' : 'text-indigo-400') : 'text-neutral-400'}`} />
+                <span className="hidden md:inline text-[10px] font-black uppercase tracking-wider">{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Sidebar Bottom: Unified Controls Dock & Profile */}
+        <div className="p-3 border-t border-neutral-200/60 dark:border-neutral-800/80 flex flex-col gap-3">
+          {/* Action Dock */}
+          <div className="flex flex-col md:flex-row items-center gap-1.5 justify-center p-1 rounded-xl bg-neutral-100/60 dark:bg-neutral-900/40 border border-neutral-200/40 dark:border-neutral-800/50">
+            {/* Refresh Action */}
+            <button
+              onClick={() => loadData(false)}
+              disabled={loading || isSyncing}
+              className={`p-1.5 rounded-xl disabled:opacity-50 transition-all cursor-pointer text-neutral-500 hover:text-neutral-800 dark:hover:text-white`}
+              title="Refresh Data"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${loading || isSyncing ? 'animate-spin' : ''}`} />
+            </button>
+
+            {/* Save Report Action */}
+            <button
+              onClick={handleExport}
+              disabled={filteredRecords.length === 0}
+              className={`p-1.5 rounded-xl disabled:opacity-50 transition-all cursor-pointer text-neutral-500 hover:text-neutral-800 dark:hover:text-white`}
+              title="Save Report"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Notification Alerts */}
+            <AlertsPanel
+              theme={theme}
+              alerts={realAlerts}
+              onNewAlertTriggered={(msg) => triggerAuditLog('TELEMETRY ALERT', msg)}
+            />
+
+            {/* Theme Toggle Button */}
+            <button
+              onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+              className={`p-1.5 rounded-xl transition-all flex items-center justify-center cursor-pointer text-neutral-500 hover:text-neutral-800 dark:hover:text-white`}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              <div className="relative w-3.5 h-3.5 flex items-center justify-center">
+                <Sun className={`w-3.5 h-3.5 absolute text-amber-500 transition-all duration-500 ease-out ${theme === 'light' ? 'rotate-0 scale-100 opacity-100' : 'rotate-90 scale-0 opacity-0'}`} />
+                <Moon className={`w-3.5 h-3.5 absolute text-indigo-400 transition-all duration-500 ease-out ${theme === 'dark' ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'}`} />
+              </div>
+            </button>
+          </div>
+
+          {/* User Profile info */}
+          <div className="flex items-center gap-2 justify-center md:justify-start">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-md shadow-indigo-500/10 shrink-0">
+              {authUser?.email ? authUser.email[0].toUpperCase() : 'D'}
+            </div>
+            <div className="hidden md:flex flex-col text-left overflow-hidden">
+              <span className="text-[10px] font-black tracking-wider leading-none text-neutral-800 dark:text-neutral-200 truncate">
+                {authUser?.email ? authUser.email.split('@')[0] : 'Administrator'}
+              </span>
+              <span className="text-[8px] font-bold text-indigo-400 font-mono tracking-wide mt-0.5">GSMB Staff</span>
+            </div>
+          </div>
+
+          {/* Sign Out Button */}
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center justify-center md:justify-start gap-2.5 px-3 py-2 text-xs font-bold rounded-xl transition-all border border-transparent text-neutral-500 hover:bg-rose-500/10 hover:text-rose-500 dark:hover:text-rose-400 cursor-pointer`}
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span className="hidden md:inline">Sign Out</span>
+          </button>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col pl-16 md:pl-56 relative z-10 w-full min-h-screen justify-between">
+        
         {/* MAIN ROUTED CONTENT */}
         <main className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6 min-h-[70vh]">
           <AnimatePresence mode="wait">
@@ -4308,25 +4268,25 @@ export default function App() {
             )}
           </AnimatePresence>
         </main>
-      </div>
 
-      {/* FOOTER */}
-      <footer className={`py-6 mt-12 relative z-10 text-center text-xs border-t transition-colors duration-300 ${theme === 'light'
-        ? 'border-neutral-200 bg-white text-neutral-500 shadow-inner'
-        : 'border-neutral-900 bg-neutral-950 text-neutral-500'
-        }`}>
-        <div className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p>© 2026 Geological Survey & Mines Bureau (GSMB), Sri Lanka. All Rights Reserved.</p>
-          <div className="flex items-center gap-3">
-            <span className={`text-[10px] border px-3 py-1 rounded-full font-mono font-bold tracking-widest uppercase transition-colors duration-300 ${theme === 'light'
-              ? 'bg-neutral-50 border-neutral-200 text-neutral-500'
-              : 'bg-neutral-900 border-neutral-800 text-neutral-400'
-              }`}>
-              OVERSIGHT VERSION 2.0.4-STABLE
-            </span>
+        {/* FOOTER */}
+        <footer className={`py-6 mt-12 relative z-10 text-center text-xs border-t transition-colors duration-300 ${theme === 'light'
+          ? 'border-neutral-200 bg-white text-neutral-500 shadow-inner'
+          : 'border-neutral-900 bg-neutral-950 text-neutral-500'
+          }`}>
+          <div className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p>© 2026 Geological Survey & Mines Bureau (GSMB), Sri Lanka. All Rights Reserved.</p>
+            <div className="flex items-center gap-3">
+              <span className={`text-[10px] border px-3 py-1 rounded-full font-mono font-bold tracking-widest uppercase transition-colors duration-300 ${theme === 'light'
+                ? 'bg-neutral-50 border-neutral-200 text-neutral-500'
+                : 'bg-neutral-900 border-neutral-800 text-neutral-400'
+                }`}>
+                OVERSIGHT VERSION 2.0.4-STABLE
+              </span>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
 
       <PermitModal
         permit={selectedPermitForPdf}

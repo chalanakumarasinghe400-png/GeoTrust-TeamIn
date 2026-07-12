@@ -213,7 +213,7 @@ export default function MapComponent({
         {/* Map Type Toggle */}
         <button
           onClick={() => setMapType(prev => prev === 'streets' ? 'satellite' : 'streets')}
-          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${
+          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${
             theme === 'light'
               ? 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 shadow-md'
               : 'bg-neutral-900 border-neutral-800 text-white hover:bg-neutral-800 shadow-2xl'
@@ -226,7 +226,7 @@ export default function MapComponent({
         {/* Whole Country View */}
         <button
           onClick={handleResetView}
-          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-2xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${
+          className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl shadow-xl border hover:scale-105 active:scale-95 transition-all duration-200 ${
             theme === 'light'
               ? 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 hover:border-neutral-300 shadow-md'
               : 'bg-neutral-900 border-neutral-800 text-white hover:bg-neutral-800 hover:border-neutral-700 shadow-2xl'
