@@ -110,6 +110,10 @@ export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelP
     setAlerts(prev => prev.map(a => ({ ...a, read: true })));
   };
 
+  const handleClearAll = () => {
+    setAlerts([]);
+  };
+
   const handleResolveAlert = (id: string) => {
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'resolved' as const, read: true } : a));
     if (onNewAlertTriggered) {
@@ -123,13 +127,9 @@ export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelP
 
   const handleAlertClick = (alert: AlertItem) => {
     if (!alert.read) {
-      setReadIds((prev) => [...prev, alert.id]);
+      setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, read: true } : a));
     }
     setIsOpen(false);
-    const permitId = alert.id.replace('alt-ov-', '').replace('alt-ur-', '').replace('alt-gps-', '');
-    if (onSelectPermit) {
-      onSelectPermit(permitId);
-    }
   };
 
   const getAlertIcon = (type: AlertItem['type']) => {
@@ -214,7 +214,7 @@ export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelP
                   {alerts.length === 0 ? (
                     <div className="p-8 text-center text-xs text-neutral-500 italic">No telemetry alerts active.</div>
                   ) : (
-                    processedAlerts.map(alert => (
+                    alerts.map(alert => (
                       <div
                         key={alert.id}
                         onClick={() => handleAlertClick(alert)}
@@ -285,10 +285,6 @@ export default function AlertsPanel({ theme, onNewAlertTriggered }: AlertsPanelP
               transition={{ type: 'spring', damping: 18 }}
               onClick={() => {
                 removeToast(toast.id);
-                const permitId = toast.id.replace('alt-ov-', '').replace('alt-ur-', '').replace('alt-gps-', '');
-                if (onSelectPermit) {
-                  onSelectPermit(permitId);
-                }
               }}
               className={`p-4 rounded-2xl border shadow-2xl flex items-start gap-3 pointer-events-auto w-full sm:w-[360px] cursor-pointer hover:scale-[1.02] transition-transform duration-200 ${theme === 'light'
                 ? 'bg-white border-rose-100 text-black shadow-xl'

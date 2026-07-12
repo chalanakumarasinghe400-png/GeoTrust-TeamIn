@@ -2125,7 +2125,7 @@ export default function App() {
         </div>
 
         {/* Filters toolbar for Permits */}
-        <div className={`p-6 rounded-3xl grid grid-cols-1 md:grid-cols-3 gap-5 transition-all duration-300 border ${theme === 'light'
+        <div className={`p-6 rounded-3xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 transition-all duration-300 border ${theme === 'light'
           ? 'bg-white border-neutral-200 shadow-md'
           : 'bg-neutral-900 border-neutral-800 shadow-lg'
           }`}>
@@ -2175,6 +2175,17 @@ export default function App() {
             >
               <RotateCw className={`w-3.5 h-3.5 ${loading || isSyncing ? 'animate-spin' : ''}`} />
               Refresh List
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2 justify-end">
+            <button
+              onClick={handleExport}
+              disabled={filteredRegistryPermits.length === 0}
+              className="w-full py-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white shadow-md shadow-indigo-600/15"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Save Report
             </button>
           </div>
         </div>
@@ -4644,8 +4655,7 @@ export default function App() {
             </div>
 
             {/* Navigation links */}
-            <nav className={`hidden md:flex items-center gap-2 text-[13px] font-bold uppercase transition-colors ${theme === 'light' ? 'text-neutral-600' : 'text-neutral-400'
-              }`}>
+            <nav className="hidden md:flex items-center gap-2 text-[13px] font-bold uppercase">
               <button
                 onClick={() => setActivePage('dashboard')}
                 className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'dashboard'
@@ -4653,8 +4663,8 @@ export default function App() {
                     ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
                     : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'text-neutral-700 border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'text-neutral-300 border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Dashboard
@@ -4666,8 +4676,8 @@ export default function App() {
                     ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
                     : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'text-neutral-700 border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'text-neutral-300 border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Data Explorer
@@ -4679,8 +4689,8 @@ export default function App() {
                     ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
                     : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'text-neutral-700 border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'text-neutral-300 border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Permit List
@@ -4692,8 +4702,8 @@ export default function App() {
                     ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
                     : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'text-neutral-700 border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'text-neutral-300 border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 New Register
@@ -4705,8 +4715,8 @@ export default function App() {
                     ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
                     : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'text-neutral-700 border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'text-neutral-300 border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Guidelines
@@ -4718,11 +4728,24 @@ export default function App() {
                     ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60 font-black shadow-sm'
                     : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
                   : theme === 'light'
-                    ? 'border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
-                    : 'border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
+                    ? 'text-neutral-700 border-transparent hover:text-neutral-900 hover:bg-neutral-200/50'
+                    : 'text-neutral-300 border-transparent hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`}
               >
                 Support & Reports
+              </button>
+              <button
+                onClick={() => setActivePage('compliance')}
+                className={`px-5 py-2.5 rounded-2xl transition-all border duration-300 ${activePage === 'compliance'
+                  ? theme === 'light'
+                    ? 'text-rose-700 bg-rose-50 border-rose-200/60 font-black shadow-sm'
+                    : 'text-white bg-neutral-900 border-neutral-800 shadow-md shadow-black/45'
+                  : theme === 'light'
+                    ? 'text-neutral-700 border-transparent hover:text-rose-600 hover:bg-rose-50/50'
+                    : 'text-neutral-300 border-transparent hover:text-rose-400 hover:bg-neutral-900/50'
+                  }`}
+              >
+                Compliance
               </button>
             </nav>
 
@@ -4739,15 +4762,6 @@ export default function App() {
               >
                 <RotateCw className={`w-3.5 h-3.5 ${loading || isSyncing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Refresh Data</span>
-              </button>
-              <button
-                onClick={handleExport}
-                disabled={filteredRecords.length === 0}
-                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5 shadow-indigo-600/25"
-                title="Save Report"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Save Report</span>
               </button>
 
               {/* Telemetry Alert Bell Center */}
@@ -4846,9 +4860,7 @@ export default function App() {
             Compliance
           </button>
         </div>
-      </aside>
 
-      <div className="flex-1 flex flex-col pl-16 md:pl-56 relative z-10 w-full min-h-screen justify-between">
 
         {/* MAIN ROUTED CONTENT */}
         <main className="max-w-[95%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6 min-h-[70vh]">
