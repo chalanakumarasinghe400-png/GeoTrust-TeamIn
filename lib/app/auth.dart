@@ -99,16 +99,16 @@ class _LoginScreenState extends State<LoginScreen> {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? (isDark ? const Color(0xFF334155) : const Color(0xFF0052FF)) 
+          color: isSelected
+              ? (isDark ? const Color(0xFF334155) : const Color(0xFF0052FF))
               : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected 
-                ? Colors.white 
+            color: isSelected
+                ? Colors.white
                 : (isDark ? Colors.white60 : const Color(0xFF64748B)),
             fontWeight: FontWeight.w600,
             fontSize: 14,
@@ -145,17 +145,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: (isDark ? const Color(0xFF1E293B) : Colors.white).withOpacity(0.4),
+                        color: (isDark ? const Color(0xFF1E293B) : Colors.white)
+                            .withOpacity(0.4),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                          color: (isDark ? Colors.white : Colors.black)
+                              .withOpacity(0.05),
                           width: 1.5,
                         ),
                       ),
                       child: Icon(
                         Icons.language,
                         size: 32,
-                        color: isDark ? const Color(0xFF94A3B8) : Colors.blueGrey,
+                        color: isDark
+                            ? const Color(0xFF94A3B8)
+                            : Colors.blueGrey,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -176,10 +180,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: (isDark ? const Color(0xFF1E293B) : Colors.white).withOpacity(0.5),
+                        color: (isDark ? const Color(0xFF1E293B) : Colors.white)
+                            .withOpacity(0.5),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                          color: (isDark ? Colors.white : Colors.black)
+                              .withOpacity(0.05),
                         ),
                       ),
                       child: Row(
@@ -196,17 +202,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(24.0),
                       decoration: BoxDecoration(
-                        color: isDark 
-                            ? const Color(0xFF0F172A).withOpacity(0.85) 
+                        color: isDark
+                            ? const Color(0xFF0F172A).withOpacity(0.85)
                             : Colors.white.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08),
+                          color: isDark
+                              ? Colors.white.withOpacity(0.08)
+                              : Colors.black.withOpacity(0.08),
                           width: 1,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: isDark ? Colors.black.withOpacity(0.3) : Colors.blueGrey.withOpacity(0.1),
+                            color: isDark
+                                ? Colors.black.withOpacity(0.3)
+                                : Colors.blueGrey.withOpacity(0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -363,7 +373,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildManagementForm(BuildContext context, LedgerService ledger, bool isDark) {
+  Widget _buildManagementForm(
+    BuildContext context,
+    LedgerService ledger,
+    bool isDark,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -417,10 +431,14 @@ class _LoginScreenState extends State<LoginScreen> {
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          style: TextStyle(color: isDark ? Colors.white : const Color(0xFF1E293B)),
+          style: TextStyle(
+            color: isDark ? Colors.white : const Color(0xFF1E293B),
+          ),
           decoration: InputDecoration(
             hintText: 'name@geotrust.com',
-            hintStyle: TextStyle(color: isDark ? Colors.white.withOpacity(0.3) : Colors.black38),
+            hintStyle: TextStyle(
+              color: isDark ? Colors.white.withOpacity(0.3) : Colors.black38,
+            ),
             filled: true,
             fillColor: isDark
                 ? const Color(0xFF1E293B).withOpacity(0.5)
@@ -440,8 +458,8 @@ class _LoginScreenState extends State<LoginScreen> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: isDark 
-                    ? Colors.white.withOpacity(0.05) 
+                color: isDark
+                    ? Colors.white.withOpacity(0.05)
                     : Colors.black.withOpacity(0.08),
               ),
             ),
@@ -467,10 +485,14 @@ class _LoginScreenState extends State<LoginScreen> {
         TextField(
           controller: _passwordController,
           obscureText: _obscurePassword,
-          style: TextStyle(color: isDark ? Colors.white : const Color(0xFF1E293B)),
+          style: TextStyle(
+            color: isDark ? Colors.white : const Color(0xFF1E293B),
+          ),
           decoration: InputDecoration(
             hintText: '••••••••••••',
-            hintStyle: TextStyle(color: isDark ? Colors.white.withOpacity(0.3) : Colors.black38),
+            hintStyle: TextStyle(
+              color: isDark ? Colors.white.withOpacity(0.3) : Colors.black38,
+            ),
             filled: true,
             fillColor: isDark
                 ? const Color(0xFF1E293B).withOpacity(0.5)
@@ -500,8 +522,8 @@ class _LoginScreenState extends State<LoginScreen> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: isDark 
-                    ? Colors.white.withOpacity(0.05) 
+                color: isDark
+                    ? Colors.white.withOpacity(0.05)
                     : Colors.black.withOpacity(0.08),
               ),
             ),
@@ -544,7 +566,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildDriversForm(BuildContext context, LedgerService ledger, bool isDark) {
+  Widget _buildDriversForm(
+    BuildContext context,
+    LedgerService ledger,
+    bool isDark,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -571,7 +597,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF1E293B),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : const Color(0xFF1E293B),
                   ),
                 ),
                 const Text(
@@ -660,8 +688,8 @@ class _PinInputWidgetState extends State<PinInputWidget> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(6, (index) {
         return SizedBox(
-          width: 48,
-          height: 52,
+          width: 40,
+          height: 45,
           child: TextField(
             controller: widget.controllers[index],
             focusNode: widget.focusNodes[index],
@@ -676,8 +704,8 @@ class _PinInputWidgetState extends State<PinInputWidget> {
             decoration: InputDecoration(
               counterText: '',
               filled: true,
-              fillColor: isDark 
-                  ? const Color(0xFF1E293B).withOpacity(0.5) 
+              fillColor: isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.5)
                   : Colors.grey.shade100,
               contentPadding: EdgeInsets.zero,
               border: OutlineInputBorder(
@@ -687,7 +715,9 @@ class _PinInputWidgetState extends State<PinInputWidget> {
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.08),
+                  color: isDark
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.black.withOpacity(0.08),
                 ),
               ),
               focusedBorder: OutlineInputBorder(

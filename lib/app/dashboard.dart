@@ -188,7 +188,7 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
         Text(
           'GeoTrust',
           style: TextStyle(
-            fontSize: 40,
+            fontSize: 45,
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : const Color(0xFF1E293B),
           ),
@@ -948,6 +948,7 @@ class _MineOwnerScreenState extends State<MineOwnerScreen> {
     List<TransportPermit> ongoingPermits,
     List<TransportPermit> recentTransactions,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final utilPercent = ledger.currentMaxCapacity > 0
         ? (ledger.currentInventoryCubes / ledger.currentMaxCapacity)
         : 0.0;
@@ -1095,9 +1096,11 @@ class _MineOwnerScreenState extends State<MineOwnerScreen> {
           const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B).withOpacity(0.4),
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              border: Border.all(
+                color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.05),
+              ),
             ),
             child: recentTransactions.isEmpty
                 ? const Padding(
@@ -2011,8 +2014,10 @@ void _showPermitOptions(
                   return Text(
                     'Permit ID: ${permit.id.toUpperCase()}',
                     style: TextStyle(
-                      color: isDark ? Colors.white60 : Colors.black54,
-                      fontSize: 12,
+                      color: isDark
+                          ? Colors.white60
+                          : const Color.fromARGB(137, 186, 185, 185),
+                      fontSize: 14,
                     ),
                   );
                 },
@@ -3598,6 +3603,22 @@ class _AmbientGradientBackgroundState extends State<AmbientGradientBackground>
     super.dispose();
   }
 
+  Color _getVibrantColor(Color baseColor, bool isDark) {
+    // Return vibrant royal blue / sapphire blue -> strictly no green
+    if (baseColor.value == 0xFF0F172A || baseColor == Colors.blueGrey) {
+      return isDark ? const Color(0xFF1D4ED8) : const Color(0xFFDBEAFE);
+    }
+    // MineOwner indigo -> Indigo Blue
+    if (baseColor == Colors.indigo) {
+      return isDark ? const Color(0xFF2563EB) : const Color(0xFFC7D2FE);
+    }
+    // HardwareOwner teal -> Electric Sky Blue (strictly no green)
+    if (baseColor == Colors.teal) {
+      return isDark ? const Color(0xFF3B82F6) : const Color(0xFF93C5FD);
+    }
+    return baseColor;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -3605,70 +3626,147 @@ class _AmbientGradientBackgroundState extends State<AmbientGradientBackground>
 
     return Stack(
       children: [
-        // Base background color
+        // Base background gradient with deep blue tints
         Container(
-          color: isDark ? const Color(0xFF0B0F19) : const Color(0xFFF9FAFB),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      const Color(0xFF030712), // Deepest dark slate-blue
+                      const Color(0xFF070F26), // Deep Navy Blue
+                      const Color(0xFF0C1635), // Deep Sapphire Blue tint
+                    ]
+                  : [
+                      const Color(0xFFEFF6FF), // Soft azure blue tint
+                      const Color(0xFFFFFFFF), // Pure white
+                      const Color(0xFFDBEAFE), // Soft sky blue tint
+                    ],
+            ),
+          ),
         ),
-        // Animated gradient blobs
+        // Animated gradient blobs and glowing matching line waves
         AnimatedBuilder(
           animation: _controller,
           builder: (context, child) {
             final t = _controller.value;
 
-            // Generate circular movements using sin/cos
-            final blob1X = size.width * (0.2 + 0.15 * sin(t * 2 * pi));
-            final blob1Y = size.height * (0.15 + 0.10 * cos(t * 2 * pi));
+            // Distribute coordinates wide across the screen corners to cover full screen
+            final blob1X = size.width * (0.05 + 0.10 * sin(t * 2 * pi));
+            final blob1Y = size.height * (0.05 + 0.10 * cos(t * 2 * pi));
 
-            final blob2X = size.width * (0.7 - 0.15 * cos(t * 2 * pi));
-            final blob2Y = size.height * (0.35 + 0.15 * sin(t * 2 * pi));
+            final blob2X = size.width * (0.95 - 0.10 * cos(t * 2 * pi));
+            final blob2Y = size.height * (0.10 + 0.10 * sin(t * 2 * pi));
 
-            final blob3X = size.width * (0.35 + 0.20 * cos(t * 2 * pi + pi));
-            final blob3Y = size.height * (0.65 + 0.10 * sin(t * 2 * pi));
+            final blob3X = size.width * (0.05 + 0.10 * cos(t * 2 * pi + pi));
+            final blob3Y = size.height * (0.90 + 0.10 * sin(t * 2 * pi));
+
+            final blob4X =
+                size.width * (0.95 - 0.10 * sin(t * 2 * pi + pi / 2));
+            final blob4Y = size.height * (0.90 - 0.10 * cos(t * 2 * pi));
+
+            final primaryVibrant = _getVibrantColor(
+              widget.primaryColor,
+              isDark,
+            );
 
             return Stack(
               children: [
-                // Blob 1: Role Primary Color
+                // Blob 1: Role Primary Color (Vibrant blue, wide spread)
                 Positioned(
-                  left: blob1X - 160,
-                  top: blob1Y - 160,
+                  left: blob1X - 300,
+                  top: blob1Y - 300,
                   child: Container(
-                    width: 320,
-                    height: 320,
+                    width: 600,
+                    height: 600,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: widget.primaryColor.withOpacity(
-                        isDark ? 0.25 : 0.20,
+                      gradient: RadialGradient(
+                        colors: [
+                          primaryVibrant.withOpacity(isDark ? 0.35 : 0.28),
+                          primaryVibrant.withOpacity(isDark ? 0.15 : 0.10),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.6, 1.0],
                       ),
                     ),
                   ),
                 ),
-                // Blob 2: Slate Blue Accent Color
+                // Blob 2: Vibrant Electric Indigo
                 Positioned(
-                  left: blob2X - 190,
-                  top: blob2Y - 190,
+                  left: blob2X - 350,
+                  top: blob2Y - 350,
                   child: Container(
-                    width: 380,
-                    height: 380,
+                    width: 700,
+                    height: 700,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(
-                        0xFF6366F1,
-                      ).withOpacity(isDark ? 0.20 : 0.15),
+                      gradient: RadialGradient(
+                        colors: [
+                          const Color(
+                            0xFF4F46E5,
+                          ).withOpacity(isDark ? 0.32 : 0.24),
+                          const Color(
+                            0xFF4F46E5,
+                          ).withOpacity(isDark ? 0.12 : 0.08),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.6, 1.0],
+                      ),
                     ),
                   ),
                 ),
-                // Blob 3: Light Cyan/Teal Ambient Color
+                // Blob 3: Vibrant Royal Blue
                 Positioned(
-                  left: blob3X - 140,
-                  top: blob3Y - 140,
+                  left: blob3X - 275,
+                  top: blob3Y - 275,
                   child: Container(
-                    width: 280,
-                    height: 280,
+                    width: 550,
+                    height: 550,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(
-                        0xFF14B8A6,
-                      ).withOpacity(isDark ? 0.18 : 0.12),
+                      gradient: RadialGradient(
+                        colors: [
+                          const Color(
+                            0xFF2563EB,
+                          ).withOpacity(isDark ? 0.30 : 0.22),
+                          const Color(
+                            0xFF2563EB,
+                          ).withOpacity(isDark ? 0.10 : 0.06),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.6, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+                // Blob 4: Vibrant Electric Cobalt
+                Positioned(
+                  left: blob4X - 300,
+                  top: blob4Y - 300,
+                  child: Container(
+                    width: 600,
+                    height: 600,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          const Color(
+                            0xFF3B82F6,
+                          ).withOpacity(isDark ? 0.28 : 0.20),
+                          const Color(0xFF3B82F6).withOpacity(0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Dynamic waving matching light beam lines (rendered under blur)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: GlowingLightBeamsPainter(
+                      animationValue: t,
+                      isDark: isDark,
                     ),
                   ),
                 ),
@@ -3676,16 +3774,102 @@ class _AmbientGradientBackgroundState extends State<AmbientGradientBackground>
             );
           },
         ),
-        // Apple-style heavy blur backdrop
+        // Apple-style heavy blur backdrop (increased to 75.0 for a seamless fluid blend)
         Positioned.fill(
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 70.0, sigmaY: 70.0),
+            filter: ImageFilter.blur(sigmaX: 75.0, sigmaY: 75.0),
             child: Container(color: Colors.transparent),
           ),
         ),
-        // Screen Content
+        // Screen Content (directly over the blurred background, no foreground sharp lines)
         Positioned.fill(child: widget.child),
       ],
     );
   }
+}
+
+class GlowingLightBeamsPainter extends CustomPainter {
+  final double animationValue;
+  final bool isDark;
+
+  GlowingLightBeamsPainter({
+    required this.animationValue,
+    required this.isDark,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = animationValue;
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    // Dynamic wave 1: Vibrant Cobalt Blue (Wide Stroke for soft diffusion)
+    final paint1 = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 36.0
+      ..shader = LinearGradient(
+        colors: [
+          const Color(0xFF3B82F6).withOpacity(0.25),
+          const Color(0xFF2563EB).withOpacity(0.12),
+          const Color(0xFF1D4ED8).withOpacity(0.0),
+        ],
+      ).createShader(rect);
+
+    final path1 = Path();
+    path1.moveTo(0, size.height * 0.25 + sin(t * 2 * pi) * 60);
+    path1.quadraticBezierTo(
+      size.width * 0.5,
+      size.height * 0.05 + cos(t * 2 * pi) * 80,
+      size.width,
+      size.height * 0.35 + sin(t * 2 * pi) * 60,
+    );
+    canvas.drawPath(path1, paint1);
+
+    // Dynamic wave 2: Electric Indigo-Blue
+    final paint2 = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 48.0
+      ..shader = LinearGradient(
+        colors: [
+          const Color(0xFF1D4ED8).withOpacity(0.0),
+          const Color(0xFF4F46E5).withOpacity(0.20),
+          const Color(0xFF2563EB).withOpacity(0.20),
+        ],
+      ).createShader(rect);
+
+    final path2 = Path();
+    path2.moveTo(0, size.height * 0.75 + cos(t * 2 * pi) * 70);
+    path2.quadraticBezierTo(
+      size.width * 0.5,
+      size.height * 0.90 + sin(t * 2 * pi) * 90,
+      size.width,
+      size.height * 0.60 + cos(t * 2 * pi) * 70,
+    );
+    canvas.drawPath(path2, paint2);
+
+    // Dynamic wave 3: Cross-wave from bottom-left to top-right
+    final paint3 = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 30.0
+      ..shader = LinearGradient(
+        colors: [
+          const Color(0xFF2563EB).withOpacity(0.0),
+          const Color(0xFF3B82F6).withOpacity(0.18),
+          const Color(0xFF1D4ED8).withOpacity(0.0),
+        ],
+      ).createShader(rect);
+
+    final path3 = Path();
+    path3.moveTo(0, size.height * 0.90 - sin(t * 2 * pi) * 50);
+    path3.quadraticBezierTo(
+      size.width * 0.5,
+      size.height * 0.50 + cos(t * 2 * pi) * 60,
+      size.width,
+      size.height * 0.10 - sin(t * 2 * pi) * 50,
+    );
+    canvas.drawPath(path3, paint3);
+  }
+
+  @override
+  bool shouldRepaint(covariant GlowingLightBeamsPainter oldDelegate) =>
+      oldDelegate.animationValue != animationValue;
 }
