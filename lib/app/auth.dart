@@ -22,6 +22,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   int _selectedTab = 0; // 0: Management, 1: Drivers
+  String? _emailError;
+  String? _passwordError;
+  String? _pinError;
 
   @override
   void initState() {
@@ -263,10 +266,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () async {
                             if (_selectedTab == 0) {
                               // Management Login
+                              setState(() {
+                                _emailError = null;
+                                _passwordError = null;
+                              });
+
+                              bool hasError = false;
+                              if (_emailController.text.trim().isEmpty) {
+                                setState(() {
+                                  _emailError = 'Please enter your email.';
+                                });
+                                hasError = true;
+                              }
+                              if (_passwordController.text.trim().isEmpty) {
+                                setState(() {
+                                  _passwordError = 'Please enter your password.';
+                                });
+                                hasError = true;
+                              }
+
+                              if (hasError) return;
+
                               setState(() => _isLoading = true);
                               final success = await ledger.loginWithCredentials(
-                                _emailController.text,
-                                _passwordController.text,
+                                _emailController.text.trim(),
+                                _passwordController.text.trim(),
                               );
                               if (mounted) setState(() => _isLoading = false);
                               if (success && mounted) {
@@ -285,28 +309,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 );
                               } else if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Invalid Email or Password.'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+                                setState(() {
+                                  _emailError = 'Invalid Email or Password.';
+                                  _passwordError = 'Invalid Email or Password.';
+                                });
                               }
                             } else {
                               // Drivers Login
+                              setState(() {
+                                _pinError = null;
+                              });
+
                               String pin = _pinControllers
                                   .map((c) => c.text)
                                   .join();
                               _driverCodeController.text = pin;
                               if (pin.length < 6) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Please enter 6-Digit Permit Code.',
-                                    ),
-                                    backgroundColor: Colors.orange,
-                                  ),
-                                );
+                                setState(() {
+                                  _pinError = 'Please enter 6-Digit Permit Code.';
+                                });
                                 return;
                               }
                               setState(() => _isLoading = true);
@@ -324,17 +345,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               } catch (e) {
                                 if (mounted) setState(() => _isLoading = false);
                                 if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        e.toString().replaceAll(
-                                          'Exception: ',
-                                          '',
-                                        ),
-                                      ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
+                                  setState(() {
+                                    _pinError = e.toString().replaceAll(
+                                      'Exception: ',
+                                      '',
+                                    );
+                                  });
                                 }
                               }
                             }
@@ -467,6 +483,16 @@ class _LoginScreenState extends State<LoginScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.blueAccent),
             ),
+            errorText: _emailError,
+            errorStyle: const TextStyle(color: Colors.redAccent),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -530,6 +556,16 @@ class _LoginScreenState extends State<LoginScreen> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.blueAccent),
+            ),
+            errorText: _passwordError,
+            errorStyle: const TextStyle(color: Colors.redAccent),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
             ),
           ),
         ),
@@ -624,7 +660,22 @@ class _LoginScreenState extends State<LoginScreen> {
         PinInputWidget(
           controllers: _pinControllers,
           focusNodes: _pinFocusNodes,
+          hasError: _pinError != null,
         ),
+        if (_pinError != null) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 4.0),
+            child: Text(
+              _pinError!,
+              style: const TextStyle(
+                color: Colors.redAccent,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         const Text(
           'Terminal pin is provided by dispatch.',
@@ -669,11 +720,13 @@ class _LoginScreenState extends State<LoginScreen> {
 class PinInputWidget extends StatefulWidget {
   final List<TextEditingController> controllers;
   final List<FocusNode> focusNodes;
+  final bool hasError;
 
   const PinInputWidget({
     super.key,
     required this.controllers,
     required this.focusNodes,
+    this.hasError = false,
   });
 
   @override
@@ -715,15 +768,18 @@ class _PinInputWidgetState extends State<PinInputWidget> {
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: isDark
-                      ? Colors.white.withOpacity(0.05)
-                      : Colors.black.withOpacity(0.08),
+                  color: widget.hasError
+                      ? Colors.redAccent
+                      : (isDark
+                          ? Colors.white.withOpacity(0.05)
+                          : Colors.black.withOpacity(0.08)),
+                  width: widget.hasError ? 1.5 : 1.0,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: Color(0xFF34D399),
+                borderSide: BorderSide(
+                  color: widget.hasError ? Colors.redAccent : const Color(0xFF34D399),
                   width: 1.5,
                 ),
               ),

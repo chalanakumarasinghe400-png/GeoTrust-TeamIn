@@ -188,7 +188,7 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
         Text(
           'GeoTrust',
           style: TextStyle(
-            fontSize: 45,
+            fontSize: 35,
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : const Color(0xFF1E293B),
           ),
@@ -1426,6 +1426,10 @@ class _MineOwnerScreenState extends State<MineOwnerScreen> {
     final qtyCtrl = TextEditingController();
     DateTime selectedDate = DateTime.now();
 
+    String? vehicleError;
+    String? qtyError;
+    bool isSubmitting = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1475,6 +1479,22 @@ class _MineOwnerScreenState extends State<MineOwnerScreen> {
                           color: Colors.white.withOpacity(0.05),
                         ),
                       ),
+                      errorText: vehicleError,
+                      errorStyle: const TextStyle(color: Colors.redAccent),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Colors.redAccent,
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Colors.redAccent,
+                          width: 1.5,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1494,6 +1514,22 @@ class _MineOwnerScreenState extends State<MineOwnerScreen> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
                           color: Colors.white.withOpacity(0.05),
+                        ),
+                      ),
+                      errorText: qtyError,
+                      errorStyle: const TextStyle(color: Colors.redAccent),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Colors.redAccent,
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Colors.redAccent,
+                          width: 1.5,
                         ),
                       ),
                     ),
@@ -1541,59 +1577,95 @@ class _MineOwnerScreenState extends State<MineOwnerScreen> {
                       backgroundColor: const Color(0xFF0052FF),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    onPressed: () async {
-                      if (vehicleCtrl.text.trim().isEmpty ||
-                          qtyCtrl.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Please enter vehicle number and quantity.',
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            setModalState(() {
+                              vehicleError = null;
+                              qtyError = null;
+                            });
+
+                            bool hasLocalError = false;
+                            if (vehicleCtrl.text.trim().isEmpty) {
+                              setModalState(() {
+                                vehicleError = 'Please enter a vehicle number.';
+                              });
+                              hasLocalError = true;
+                            }
+                            if (qtyCtrl.text.trim().isEmpty) {
+                              setModalState(() {
+                                qtyError = 'Please enter a quantity.';
+                              });
+                              hasLocalError = true;
+                            } else {
+                              final qty = double.tryParse(qtyCtrl.text) ?? 0.0;
+                              if (qty <= 0) {
+                                setModalState(() {
+                                  qtyError =
+                                      'Quantity must be greater than zero.';
+                                });
+                                hasLocalError = true;
+                              }
+                            }
+
+                            if (hasLocalError) return;
+
+                            final qty = double.tryParse(qtyCtrl.text) ?? 0.0;
+
+                            setModalState(() {
+                              isSubmitting = true;
+                            });
+
+                            final error = await ledger.issueNewPermit(
+                              vehicleCtrl.text.trim(),
+                              qty,
+                              selectedDate,
+                            );
+
+                            if (ctx.mounted) {
+                              setModalState(() {
+                                isSubmitting = false;
+                              });
+                            }
+
+                            if (error != null) {
+                              setModalState(() {
+                                if (error.contains('not registered')) {
+                                  vehicleError =
+                                      'Truck is not registered in the system.';
+                                } else if (error.contains('exceeds')) {
+                                  qtyError = error.replaceAll('ERROR: ', '');
+                                } else {
+                                  vehicleError = error.replaceAll(
+                                    'ERROR: ',
+                                    '',
+                                  );
+                                }
+                              });
+                            } else {
+                              Navigator.pop(ctx);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Draft permit created successfully!',
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    child: isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
                             ),
-                            backgroundColor: Colors.orange,
-                          ),
-                        );
-                        return;
-                      }
-                      final qty = double.tryParse(qtyCtrl.text) ?? 0.0;
-                      if (qty <= 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Quantity must be greater than zero.',
-                            ),
-                            backgroundColor: Colors.orange,
-                          ),
-                        );
-                        return;
-                      }
-                      Navigator.pop(ctx);
-                      final error = await ledger.issueNewPermit(
-                        vehicleCtrl.text.trim(),
-                        qty,
-                        selectedDate,
-                      );
-                      if (error != null) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(error),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      } else {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Draft permit created successfully!',
-                              ),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    child: const Text('Create Draft License'),
+                          )
+                        : const Text('Create Draft License'),
                   ),
                 ],
               ),

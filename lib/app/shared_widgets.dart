@@ -7,8 +7,16 @@ class AppDrawer extends StatelessWidget {
     final ledger = context.watch<LedgerService>();
     final themeProvider = context.watch<ThemeProvider>();
     final role = ledger.currentUserRole;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final drawerBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFFAF9FB);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF1E293B);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final containerBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+    final borderColor = isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05);
+
     return Drawer(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: drawerBg,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
@@ -73,17 +81,17 @@ class AppDrawer extends StatelessWidget {
                             width: 56,
                             height: 56,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: containerBg,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.05),
+                                color: borderColor,
                                 width: 1.5,
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.person_outline,
                               size: 28,
-                              color: Color(0xFF94A3B8),
+                              color: textSecondary,
                             ),
                           ),
                     const SizedBox(width: 16),
@@ -95,10 +103,10 @@ class AppDrawer extends StatelessWidget {
                             ledger.currentUsername.isEmpty
                                 ? 'Guest'
                                 : ledger.currentUsername,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
-                              color: Colors.white,
+                              color: textPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -106,8 +114,8 @@ class AppDrawer extends StatelessWidget {
                           if (role != null)
                             Text(
                               role.displayName,
-                              style: const TextStyle(
-                                color: Color(0xFF64748B),
+                              style: TextStyle(
+                                color: textSecondary,
                                 fontSize: 12,
                               ),
                             ),
@@ -120,10 +128,10 @@ class AppDrawer extends StatelessWidget {
               const SizedBox(height: 36),
 
               // MAIN CONSOLE section
-              const Text(
+              Text(
                 'MAIN CONSOLE',
                 style: TextStyle(
-                  color: Color(0xFF475569),
+                  color: textSecondary.withOpacity(0.8),
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -154,10 +162,10 @@ class AppDrawer extends StatelessWidget {
               const SizedBox(height: 24),
 
               // PREFERENCES section
-              const Text(
+              Text(
                 'PREFERENCES',
                 style: TextStyle(
-                  color: Color(0xFF475569),
+                  color: textSecondary.withOpacity(0.8),
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -167,13 +175,13 @@ class AppDrawer extends StatelessWidget {
 
               // Location Switcher
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.map_outlined,
-                  color: Color(0xFF94A3B8),
+                  color: textSecondary,
                 ),
-                title: const Text(
+                title: Text(
                   'Location-switcher',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -189,10 +197,10 @@ class AppDrawer extends StatelessWidget {
               if (ledger.currentUserRole == UserRole.mineOwner ||
                   ledger.currentUserRole == UserRole.hardwareOwner)
                 ListTile(
-                  leading: const Icon(Icons.history, color: Color(0xFF94A3B8)),
-                  title: const Text(
+                  leading: Icon(Icons.history, color: textSecondary),
+                  title: Text(
                     'Transaction History',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: textPrimary),
                   ),
                   onTap: () {
                     Navigator.pop(context);
@@ -206,13 +214,13 @@ class AppDrawer extends StatelessWidget {
               // Dark Mode Switch
               SwitchListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                title: const Text(
+                title: Text(
                   'Dark Mode',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: textPrimary),
                 ),
-                secondary: const Icon(
+                secondary: Icon(
                   Icons.dark_mode_outlined,
-                  color: Color(0xFF94A3B8),
+                  color: textSecondary,
                 ),
                 value: themeProvider.themeMode == ThemeMode.dark,
                 onChanged: (val) => themeProvider.toggleTheme(val),
@@ -221,10 +229,10 @@ class AppDrawer extends StatelessWidget {
               const SizedBox(height: 24),
 
               // SECURITY & SUPPORT section
-              const Text(
+              Text(
                 'SECURITY & SUPPORT',
                 style: TextStyle(
-                  color: Color(0xFF475569),
+                  color: textSecondary.withOpacity(0.8),
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -234,13 +242,13 @@ class AppDrawer extends StatelessWidget {
 
               // Change Password
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.lock_outline,
-                  color: Color(0xFF94A3B8),
+                  color: textSecondary,
                 ),
-                title: const Text(
+                title: Text(
                   'Change Password',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -255,13 +263,13 @@ class AppDrawer extends StatelessWidget {
 
               // Support
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.headset_mic_outlined,
-                  color: Color(0xFF94A3B8),
+                  color: textSecondary,
                 ),
-                title: const Text(
+                title: Text(
                   'Support',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(context);
