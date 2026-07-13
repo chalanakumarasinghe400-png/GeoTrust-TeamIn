@@ -65,32 +65,34 @@ class _LoginScreenState extends State<LoginScreen> {
     final ledger = context.read<LedgerService>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        body: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(top: 40, bottom: 10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark ? [Colors.teal.shade900, Colors.teal.shade700] : [Colors.teal.shade700, Colors.teal.shade500],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(32),
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 10,
-                    offset: Offset(0, 5),
+    return AmbientGradientBackground(
+      primaryColor: const Color(0xFF4F46E5),
+      animate: true,
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.only(top: 40, bottom: 10),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF1E293B).withOpacity(0.3)
+                      : const Color(0xFFF1F5F9).withOpacity(0.2),
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(32),
                   ),
-                ],
-              ),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark
+                          ? const Color(0xFF334155).withOpacity(0.5)
+                          : const Color(0xFFE2E8F1).withOpacity(0.5),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
               child: SafeArea(
                 bottom: false,
                 child: Column(
@@ -371,6 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

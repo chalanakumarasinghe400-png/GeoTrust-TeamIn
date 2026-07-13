@@ -8,180 +8,193 @@ class AppDrawer extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
     final role = ledger.currentUserRole;
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.fromLTRB(
-              16,
-              MediaQuery.of(context).padding.top + 24,
-              16,
-              24,
-            ),
-            decoration: BoxDecoration(
-              color: role != null
-                  ? (Theme.of(context).brightness == Brightness.dark ? role.color.shade800 : role.color)
-                  : (Theme.of(context).brightness == Brightness.dark ? Colors.teal.shade800 : Colors.teal),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Profile Photo'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              leading: const Icon(Icons.photo_library),
-                              title: const Text('Change Photo'),
-                              onTap: () async {
-                                Navigator.pop(ctx);
-                                final picker = ImagePicker();
-                                final photo = await picker.pickImage(
-                                  source: ImageSource.gallery,
-                                  imageQuality: 30,
-                                  maxWidth: 400,
-                                );
-                                if (photo != null) {
-                                  ledger.updateProfilePicture(photo.path);
-                                }
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(
-                                Icons.delete,
-                                color: Colors.red,
+      backgroundColor: Colors.transparent,
+      child: AmbientGradientBackground(
+        primaryColor: role?.color ?? Colors.teal,
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                MediaQuery.of(context).padding.top + 24,
+                16,
+                24,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.white.withOpacity(0.35),
+                border: Border(
+                  bottom: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withOpacity(0.08)
+                        : Colors.black.withOpacity(0.05),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Profile Photo'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                leading: const Icon(Icons.photo_library),
+                                title: const Text('Change Photo'),
+                                onTap: () async {
+                                  Navigator.pop(ctx);
+                                  final picker = ImagePicker();
+                                  final photo = await picker.pickImage(
+                                    source: ImageSource.gallery,
+                                    imageQuality: 30,
+                                    maxWidth: 400,
+                                  );
+                                  if (photo != null) {
+                                    ledger.updateProfilePicture(photo.path);
+                                  }
+                                },
                               ),
-                              title: const Text(
-                                'Remove Photo',
-                                style: TextStyle(color: Colors.red),
+                              ListTile(
+                                leading: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
+                                title: const Text(
+                                  'Remove Photo',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  ledger.removeProfilePicture();
+                                },
                               ),
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                ledger.removeProfilePicture();
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  child: ledger.profilePicBase64 != null
-                      ? CircleAvatar(
-                          radius: 40,
-                          backgroundImage: MemoryImage(
-                            base64Decode(ledger.profilePicBase64!),
+                            ],
                           ),
-                        )
-                      : const Icon(
-                          Icons.account_circle,
-                          size: 80,
-                          color: Colors.white,
                         ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  ledger.currentUsername.isEmpty ? 'Guest' : ledger.currentUsername,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                    color: Colors.white,
+                      );
+                    },
+                    child: ledger.profilePicBase64 != null
+                        ? CircleAvatar(
+                            radius: 40,
+                            backgroundImage: MemoryImage(
+                              base64Decode(ledger.profilePicBase64!),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.account_circle,
+                            size: 80,
+                            color: Colors.white,
+                          ),
                   ),
-                ),
-                if (role != null)
+                  const SizedBox(height: 8),
                   Text(
-                    role.displayName,
-                    style: const TextStyle(color: Colors.white70),
+                    ledger.currentUsername.isEmpty ? 'Guest' : ledger.currentUsername,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                      color: Colors.white,
+                    ),
                   ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(left: 16, top: 16, bottom: 8),
-            child: Text(
-              'FAST DASHBOARD SWITCH',
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+                  if (role != null)
+                    Text(
+                      role.displayName,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                ],
               ),
             ),
-          ),
-          if (ledger.userLocations.isNotEmpty)
-            ...ledger.userLocations.map((loc) {
-              final isMine = loc['location_type'] == 'MINE' || loc['location_type'] == 'MINE_OWNER';
-              final title = loc['name'] ?? (isMine ? 'Mine' : 'Hardware');
-              return _buildSwitchTile(
-                context,
-                ledger,
-                title,
-                isMine ? UserRole.mineOwner : UserRole.hardwareOwner,
-                isMine ? MineOwnerScreen(locationName: title) : HardwareOwnerScreen(locationName: title),
-                loc['id'],
-              );
-            }),
-          const Divider(),
-          if (ledger.currentUserRole == UserRole.mineOwner || ledger.currentUserRole == UserRole.hardwareOwner) 
+            const Padding(
+              padding: EdgeInsets.only(left: 16, top: 16, bottom: 8),
+              child: Text(
+                'FAST DASHBOARD SWITCH',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (ledger.userLocations.isNotEmpty)
+              ...ledger.userLocations.map((loc) {
+                final isMine = loc['location_type'] == 'MINE' || loc['location_type'] == 'MINE_OWNER';
+                final title = loc['name'] ?? (isMine ? 'Mine' : 'Hardware');
+                return _buildSwitchTile(
+                  context,
+                  ledger,
+                  title,
+                  isMine ? UserRole.mineOwner : UserRole.hardwareOwner,
+                  isMine ? MineOwnerScreen(locationName: title) : HardwareOwnerScreen(locationName: title),
+                  loc['id'],
+                );
+              }),
+            const Divider(),
+            if (ledger.currentUserRole == UserRole.mineOwner || ledger.currentUserRole == UserRole.hardwareOwner) 
+              ListTile(
+                leading: const Icon(Icons.history, color: Colors.white70),
+                title: const Text('Transaction History', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                  );
+                },
+              ),
+            SwitchListTile(
+              title: const Text('Dark Mode', style: TextStyle(color: Colors.white)),
+              secondary: const Icon(Icons.dark_mode, color: Colors.white70),
+              value: themeProvider.themeMode == ThemeMode.dark,
+              onChanged: (val) => themeProvider.toggleTheme(val),
+              activeColor: role?.color ?? Colors.teal,
+            ),
             ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text('Transaction History'),
+              leading: const Icon(Icons.password, color: Colors.white70),
+              title: const Text('Change Password', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                  MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
                 );
               },
             ),
-          SwitchListTile(
-            title: const Text('Dark Mode'),
-            secondary: const Icon(Icons.dark_mode),
-            value: themeProvider.themeMode == ThemeMode.dark,
-            onChanged: (val) => themeProvider.toggleTheme(val),
-          ),
-          ListTile(
-            leading: const Icon(Icons.password),
-            title: const Text('Change Password'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.info),
-            title: const Text('About GeoTrust'),
-            onTap: () => _showAboutDialog(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.contact_support),
-            title: const Text('Contact Support'),
-            onTap: () => _showContactDialog(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'Logout User',
-              style: TextStyle(color: Colors.red),
+            ListTile(
+              leading: const Icon(Icons.info, color: Colors.white70),
+              title: const Text('About GeoTrust', style: TextStyle(color: Colors.white)),
+              onTap: () => _showAboutDialog(context),
             ),
-            onTap: () {
-              ledger.logout();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (r) => false,
-              );
-            },
-          ),
-        ],
+            ListTile(
+              leading: const Icon(Icons.contact_support, color: Colors.white70),
+              title: const Text('Contact Support', style: TextStyle(color: Colors.white)),
+              onTap: () => _showContactDialog(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text(
+                'Logout User',
+                style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+              ),
+              onTap: () {
+                ledger.logout();
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (r) => false,
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -359,13 +372,10 @@ class PermitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
+    return PremiumGlassCard(
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: _getColor(permit.status), width: 2),
-      ),
+      borderSide: BorderSide(color: _getColor(permit.status), width: 2),
+      borderRadius: 16,
       child: Padding(
         padding: EdgeInsets.all(isLarge ? 24.0 : 16.0),
         child: Column(
@@ -651,6 +661,55 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class PremiumGlassCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double borderRadius;
+  final BorderSide? borderSide;
+
+  const PremiumGlassCard({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.borderRadius = 20.0,
+    this.borderSide,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: margin,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark 
+            ? Colors.white.withOpacity(0.04) 
+            : Colors.white.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: borderSide != null
+            ? Border.fromBorderSide(borderSide!)
+            : Border.all(
+                color: isDark 
+                    ? Colors.white.withOpacity(0.08) 
+                    : Colors.black.withOpacity(0.06),
+                width: 1,
+              ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.15 : 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }

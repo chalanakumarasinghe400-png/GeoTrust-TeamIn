@@ -42,9 +42,11 @@ class GeoTrustApp extends StatelessWidget {
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.teal,
+                seedColor: const Color(0xFF4F46E5), // Indigo 600
                 brightness: Brightness.light,
+                background: const Color(0xFFF9FAFB),
               ),
+              scaffoldBackgroundColor: const Color(0xFFF9FAFB),
               listTileTheme: ListTileThemeData(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -54,9 +56,11 @@ class GeoTrustApp extends StatelessWidget {
             darkTheme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.teal,
+                seedColor: const Color(0xFF6366F1), // Indigo 500
                 brightness: Brightness.dark,
+                background: const Color(0xFF0B0F19),
               ),
+              scaffoldBackgroundColor: const Color(0xFF0B0F19),
               listTileTheme: ListTileThemeData(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),

@@ -30,11 +30,11 @@ extension UserRoleExtension on UserRole {
   MaterialColor get color {
     switch (this) {
       case UserRole.driver:
-        return Colors.blue;
+        return Colors.blueGrey;
       case UserRole.mineOwner:
-        return Colors.orange;
+        return Colors.indigo;
       case UserRole.hardwareOwner:
-        return Colors.purple;
+        return Colors.teal;
     }
   }
 }

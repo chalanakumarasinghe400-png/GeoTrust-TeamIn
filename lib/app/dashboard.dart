@@ -59,65 +59,74 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
       trucks = trucks.where((t) => (t['number_plate'] ?? 'Truck').toLowerCase().contains(_searchQuery.toLowerCase())).toList();
     }
 
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          toolbarHeight: 75,
-          title: Text(
-            'Welcome ${user.name}!',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  blurRadius: 1.0,
-                  color: Colors.black38,
-                  offset: Offset(0.5, 0.5),
+    return AmbientGradientBackground(
+      primaryColor: const Color(0xFF6366F1),
+      child: DefaultTabController(
+        length: 3,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            toolbarHeight: 90,
+            title: Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: Text(
+                'Welcome ${user.name}!',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      blurRadius: 1.0,
+                      color: Colors.black38,
+                      offset: Offset(0.5, 0.5),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(110),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: TextField(
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                    decoration: InputDecoration(
-                      hintText: 'Search locations or trucks...',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.black26 : Colors.white.withOpacity(0.8),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(110),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: TextField(
+                      onChanged: (val) => setState(() => _searchQuery = val),
+                      decoration: InputDecoration(
+                        hintText: 'Search locations or trucks...',
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.black26 : Colors.white.withOpacity(0.8),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const TabBar(
-                  tabs: [
-                    Tab(text: 'Mines', icon: Icon(Icons.landscape)),
-                    Tab(text: 'Hardwares', icon: Icon(Icons.store)),
-                    Tab(text: 'Trucks', icon: Icon(Icons.local_shipping)),
-                  ],
-                ),
-              ],
+                  const TabBar(
+                    tabs: [
+                      Tab(text: 'Mines', icon: Icon(Icons.landscape)),
+                      Tab(text: 'Hardwares', icon: Icon(Icons.store)),
+                      Tab(text: 'Trucks', icon: Icon(Icons.local_shipping)),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        drawer: const AppDrawer(),
-        body: TabBarView(
-          children: [
-            _buildLocationList(context, ledger, mines, true),
-            _buildLocationList(context, ledger, hardwares, false),
-            _buildTruckList(context, ledger, trucks),
-          ],
+          drawer: const AppDrawer(),
+          body: TabBarView(
+            children: [
+              _buildLocationList(context, ledger, mines, true),
+              _buildLocationList(context, ledger, hardwares, false),
+              _buildTruckList(context, ledger, trucks),
+            ],
+          ),
         ),
       ),
     );
@@ -150,7 +159,7 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
             ledger: ledger,
             title: title,
             icon: isMine ? Icons.landscape : Icons.store,
-            color: isMine ? Colors.orange : Colors.purple,
+            color: isMine ? UserRole.mineOwner.color : UserRole.hardwareOwner.color,
             destination: isMine ? MineOwnerScreen(locationName: title) : HardwareOwnerScreen(locationName: title),
             role: isMine ? UserRole.mineOwner : UserRole.hardwareOwner,
             locationId: loc['id'],
@@ -174,72 +183,83 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Card(
-      elevation: isDark ? 0 : 6,
-      shadowColor: isDark ? Colors.transparent : color.withOpacity(0.4),
-      color: isDark ? color.withOpacity(0.15) : color.shade50,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: isDark ? BorderSide(color: color.shade400.withOpacity(0.6), width: 1.5) : BorderSide.none,
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: () {
-          ledger.setLocationAndPreload(locationId, role);
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => destination),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: isDark ? color.shade400 : color,
-                    child: Icon(icon, color: Colors.white, size: 48),
+    return HoverBentoCard(
+      color: color,
+      isDark: isDark,
+      onTap: () {
+        ledger.setLocationAndPreload(locationId, role);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => destination),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: isDark ? color.shade400.withOpacity(0.2) : color.shade100,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDark ? color.shade400.withOpacity(0.4) : color.shade200,
+                      width: 1.5,
+                    ),
                   ),
-                  if (showRedDot)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
+                  child: Icon(
+                    icon, 
+                    color: isDark ? color.shade300 : color.shade900, 
+                    size: 44,
+                  ),
+                ),
+                if (showRedDot)
+                  Positioned(
+                    right: 2,
+                    top: 2,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade500,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF1B263B) : Colors.white, 
+                          width: 2.5,
                         ),
                       ),
                     ),
-                ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 28),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: role == UserRole.mineOwner ? '.SF Pro Rounded' : 'Plus Jakarta Sans',
+                fontFamilyFallback: role == UserRole.mineOwner ? const ['Quicksand', 'Nunito', 'sans-serif'] : null,
+                fontWeight: role == UserRole.mineOwner ? FontWeight.w900 : FontWeight.w800,
+                fontSize: 22,
+                color: isDark ? Colors.white : const Color(0xFF1E293B),
+                letterSpacing: role == UserRole.mineOwner ? 0.0 : -0.5,
               ),
-              const SizedBox(height: 24),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                  color: isDark ? Colors.white : color.shade900,
-                ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Tap to manage location',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white.withOpacity(0.5) : const Color(0xFF64748B),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Tap to manage location',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: isDark ? color.shade200 : color.shade700,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -286,60 +306,67 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
     required String chassisNumber,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = Colors.blue;
+    final color = UserRole.driver.color;
 
-    return Card(
-      elevation: isDark ? 0 : 6,
-      shadowColor: isDark ? Colors.transparent : color.withOpacity(0.4),
-      color: isDark ? color.withOpacity(0.15) : color.shade50,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: isDark ? BorderSide(color: color.shade400.withOpacity(0.6), width: 1.5) : BorderSide.none,
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => TruckOwnerScreen(
-                numberPlate: numberPlate,
-                capacity: capacity,
-                chassisNumber: chassisNumber,
+    return HoverBentoCard(
+      color: color,
+      isDark: isDark,
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TruckOwnerScreen(
+              numberPlate: numberPlate,
+              capacity: capacity,
+              chassisNumber: chassisNumber,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                color: isDark ? color.shade400.withOpacity(0.2) : color.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark ? color.shade400.withOpacity(0.4) : color.shade200,
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                Icons.local_shipping, 
+                color: isDark ? color.shade300 : color.shade900, 
+                size: 44,
               ),
             ),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 48,
-                backgroundColor: isDark ? color.shade400 : color,
-                child: const Icon(Icons.local_shipping, color: Colors.white, size: 48),
+            const SizedBox(height: 28),
+            Text(
+              numberPlate,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.w800,
+                fontSize: 22,
+                color: isDark ? Colors.white : const Color(0xFF1E293B),
+                letterSpacing: -0.5,
               ),
-              const SizedBox(height: 24),
-              Text(
-                numberPlate,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                  color: isDark ? Colors.white : color.shade900,
-                ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Capacity: ${capacity.toStringAsFixed(1)} m³',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white.withOpacity(0.5) : const Color(0xFF64748B),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Capacity: ${capacity.toStringAsFixed(1)} m³',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: isDark ? color.shade200 : color.shade700,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -363,23 +390,28 @@ class TruckOwnerScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ledger = context.watch<LedgerService>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Truck: $numberPlate'),
-        backgroundColor: isDark ? Colors.blue.shade900 : Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home),
-            onPressed: () => Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const RolePortalScreen()),
-              (route) => false,
+    return AmbientGradientBackground(
+      primaryColor: UserRole.driver.color,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text('Truck: $numberPlate'),
+          foregroundColor: Colors.white,
+          iconTheme: const IconThemeData(color: Colors.white),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.home),
+              onPressed: () => Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const RolePortalScreen()),
+                (route) => false,
+              ),
             ),
-          ),
-        ],
-      ),
-      drawer: const AppDrawer(),
+          ],
+        ),
+        drawer: const AppDrawer(),
       body: FutureBuilder<List<TransportPermit>>(
         future: ledger.getPermitsForTruck(numberPlate),
         builder: (context, snapshot) {
@@ -395,12 +427,8 @@ class TruckOwnerScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Card(
-                  color: isDark ? Colors.blue.shade900.withOpacity(0.2) : Colors.blue.shade50,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: isDark ? BorderSide(color: Colors.blue.shade400.withOpacity(0.5)) : BorderSide.none,
-                  ),
+                PremiumGlassCard(
+                  borderRadius: 16,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -456,8 +484,9 @@ class TruckOwnerScreen extends StatelessWidget {
           );
         },
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDetailRow(String label, String value, bool isDark) {
     return Padding(
@@ -491,30 +520,48 @@ class MineOwnerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(locationName),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.home),
-              onPressed: () => Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const RolePortalScreen()),
-                (route) => false,
+    return AmbientGradientBackground(
+      primaryColor: UserRole.mineOwner.color,
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(
+              locationName,
+              style: const TextStyle(
+                fontFamily: '.SF Pro Rounded',
+                fontFamilyFallback: ['Quicksand', 'Nunito', 'sans-serif'],
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Remaining', icon: Icon(Icons.inventory)),
-              Tab(text: 'On going', icon: Icon(Icons.local_shipping)),
+            foregroundColor: Colors.white,
+            iconTheme: const IconThemeData(color: Colors.white),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.home),
+                onPressed: () => Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RolePortalScreen()),
+                  (route) => false,
+                ),
+              ),
             ],
+            bottom: const TabBar(
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              indicatorColor: Colors.white,
+              tabs: [
+                Tab(text: 'Remaining', icon: Icon(Icons.inventory)),
+                Tab(text: 'On going', icon: Icon(Icons.local_shipping)),
+              ],
+            ),
           ),
+          drawer: const AppDrawer(),
+          body: const TabBarView(children: [_RemainingPanel(), _OngoingPanel()]),
         ),
-        drawer: const AppDrawer(),
-        body: const TabBarView(children: [_RemainingPanel(), _OngoingPanel()]),
       ),
     );
   }
@@ -562,8 +609,8 @@ class _RemainingPanelState extends State<_RemainingPanel> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            color: Theme.of(context).colorScheme.primaryContainer,
+          PremiumGlassCard(
+            borderRadius: 16,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -573,7 +620,7 @@ class _RemainingPanelState extends State<_RemainingPanel> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      color: isDark ? Colors.white : const Color(0xFF1E293B),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -591,7 +638,7 @@ class _RemainingPanelState extends State<_RemainingPanel> {
                       fontWeight: FontWeight.bold,
                       color: ledger.currentInventoryCubes < 10
                           ? (isDark ? Colors.red.shade300 : Colors.red.shade700)
-                          : Theme.of(context).colorScheme.onPrimaryContainer,
+                          : (isDark ? Colors.white70 : const Color(0xFF475569)),
                     ),
                   ),
                 ],
@@ -599,8 +646,8 @@ class _RemainingPanelState extends State<_RemainingPanel> {
             ),
           ),
           const SizedBox(height: 24),
-          Card(
-            elevation: 4,
+          PremiumGlassCard(
+            borderRadius: 16,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -846,9 +893,9 @@ class _OngoingPanelState extends State<_OngoingPanel> {
     LedgerService ledger,
     TransportPermit permit,
   ) {
-    return Card(
-      elevation: 4,
+    return PremiumGlassCard(
       margin: const EdgeInsets.only(bottom: 16),
+      borderRadius: 16,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1000,12 +1047,17 @@ class _DriverScreenState extends State<DriverScreen> {
     final ledger = context.watch<LedgerService>();
     final activePermit = ledger.currentDriverPermit;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transporter Dashboard'),
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-      ),
+    return AmbientGradientBackground(
+      primaryColor: UserRole.driver.color,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text('Transporter Dashboard'),
+          foregroundColor: Colors.white,
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -1096,7 +1148,7 @@ class _DriverScreenState extends State<DriverScreen> {
                         ),
                       ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.blue.shade800,
+                  backgroundColor: Colors.blueGrey.shade800,
                 ),
               ),
             ],
@@ -1125,8 +1177,9 @@ class _DriverScreenState extends State<DriverScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class HardwareOwnerScreen extends StatelessWidget {
@@ -1135,38 +1188,42 @@ class HardwareOwnerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(locationName),
-          backgroundColor: isDark ? Colors.purple.shade900 : UserRole.hardwareOwner.color,
-          foregroundColor: Colors.white,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.home),
-              onPressed: () => Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const RolePortalScreen()),
-                (route) => false,
+    return AmbientGradientBackground(
+      primaryColor: UserRole.hardwareOwner.color,
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(locationName),
+            foregroundColor: Colors.white,
+            iconTheme: const IconThemeData(color: Colors.white),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.home),
+                onPressed: () => Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RolePortalScreen()),
+                  (route) => false,
+                ),
               ),
-            ),
-          ],
-          bottom: const TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            tabs: [
-              Tab(text: 'Inventory', icon: Icon(Icons.inventory_2)),
-              Tab(text: 'Transports', icon: Icon(Icons.local_shipping)),
             ],
+            bottom: const TabBar(
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              indicatorColor: Colors.white,
+              tabs: [
+                Tab(text: 'Inventory', icon: Icon(Icons.inventory_2)),
+                Tab(text: 'Transports', icon: Icon(Icons.local_shipping)),
+              ],
+            ),
           ),
-        ),
-        drawer: const AppDrawer(),
-        body: const TabBarView(
-          children: [_HardwareInventoryPanel(), _HardwareOngoingPanel()],
+          drawer: const AppDrawer(),
+          body: const TabBarView(
+            children: [_HardwareInventoryPanel(), _HardwareOngoingPanel()],
+          ),
         ),
       ),
     );
@@ -1184,27 +1241,27 @@ class _HardwareInventoryPanel extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            color: isDark ? Colors.purple.shade800 : Colors.purple,
+          PremiumGlassCard(
+            borderRadius: 20,
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 children: [
-                  const Icon(Icons.inventory_2, size: 56, color: Colors.white),
+                  Icon(Icons.inventory_2, size: 56, color: UserRole.hardwareOwner.color),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Current Sand Inventory',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: isDark ? Colors.white70 : const Color(0xFF475569),
                     ),
                   ),
                   Text(
                     '${ledger.currentInventoryCubes} Cubes',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: isDark ? Colors.white : const Color(0xFF1E293B),
                     ),
                   ),
                 ],
@@ -1220,7 +1277,7 @@ class _HardwareInventoryPanel extends StatelessWidget {
               child: Text('ASSIGN TRANSPORTATION TO HOME (< 5 CUBES)'),
             ),
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.purple,
+              backgroundColor: Colors.teal,
               foregroundColor: Colors.white,
             ),
           ),
@@ -1374,9 +1431,9 @@ class _HardwareOngoingPanel extends StatelessWidget {
     LedgerService ledger,
     TransportPermit permit,
   ) {
-    return Card(
-      elevation: 4,
+    return PremiumGlassCard(
       margin: const EdgeInsets.only(bottom: 16),
+      borderRadius: 16,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1426,7 +1483,7 @@ class _HardwareOngoingPanel extends StatelessWidget {
                 icon: const Icon(Icons.local_shipping),
                 label: const Text('DISPATCH TO BUYER'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.purple,
+                  backgroundColor: Colors.teal,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -1488,6 +1545,223 @@ class TruckNumberFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+class HoverBentoCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final MaterialColor color;
+  final bool isDark;
+
+  const HoverBentoCard({
+    super.key,
+    required this.child,
+    required this.onTap,
+    required this.color,
+    required this.isDark,
+  });
+
+  @override
+  State<HoverBentoCard> createState() => _HoverBentoCardState();
+}
+
+class _HoverBentoCardState extends State<HoverBentoCard> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = _isPressed ? 0.97 : 1.0;
+    
+    final decoration = widget.isDark
+        ? BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF1B263B).withOpacity(0.95),
+                const Color(0xFF121C2C).withOpacity(0.50),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: const Color(0xFF2E3F5D),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0E1726).withOpacity(0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          )
+        : BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFFECF0F6),
+                const Color(0xFFE2E8F1).withOpacity(0.9),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: const Color(0xFFD4DCE8),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blueGrey.withOpacity(0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          );
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.identity()..scale(scale),
+        transformAlignment: Alignment.center,
+        decoration: decoration,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+class AmbientGradientBackground extends StatefulWidget {
+  final Widget child;
+  final Color primaryColor;
+  final bool animate;
+
+  const AmbientGradientBackground({
+    super.key,
+    required this.child,
+    required this.primaryColor,
+    this.animate = false,
+  });
+
+  @override
+  State<AmbientGradientBackground> createState() => _AmbientGradientBackgroundState();
+}
+
+class _AmbientGradientBackgroundState extends State<AmbientGradientBackground>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 15),
+    );
+    if (widget.animate) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final size = MediaQuery.of(context).size;
+
+    return Stack(
+      children: [
+        // Base background color
+        Container(
+          color: isDark ? const Color(0xFF0B0F19) : const Color(0xFFF9FAFB),
+        ),
+        // Animated gradient blobs
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final t = _controller.value;
+            
+            // Generate circular movements using sin/cos
+            final blob1X = size.width * (0.2 + 0.15 * sin(t * 2 * pi));
+            final blob1Y = size.height * (0.15 + 0.10 * cos(t * 2 * pi));
+
+            final blob2X = size.width * (0.7 - 0.15 * cos(t * 2 * pi));
+            final blob2Y = size.height * (0.35 + 0.15 * sin(t * 2 * pi));
+
+            final blob3X = size.width * (0.35 + 0.20 * cos(t * 2 * pi + pi));
+            final blob3Y = size.height * (0.65 + 0.10 * sin(t * 2 * pi));
+
+            return Stack(
+              children: [
+                // Blob 1: Role Primary Color
+                Positioned(
+                  left: blob1X - 160,
+                  top: blob1Y - 160,
+                  child: Container(
+                    width: 320,
+                    height: 320,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: widget.primaryColor.withOpacity(isDark ? 0.25 : 0.20),
+                    ),
+                  ),
+                ),
+                // Blob 2: Slate Blue Accent Color
+                Positioned(
+                  left: blob2X - 190,
+                  top: blob2Y - 190,
+                  child: Container(
+                    width: 380,
+                    height: 380,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF6366F1).withOpacity(isDark ? 0.20 : 0.15),
+                    ),
+                  ),
+                ),
+                // Blob 3: Light Cyan/Teal Ambient Color
+                Positioned(
+                  left: blob3X - 140,
+                  top: blob3Y - 140,
+                  child: Container(
+                    width: 280,
+                    height: 280,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF14B8A6).withOpacity(isDark ? 0.18 : 0.12),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        // Apple-style heavy blur backdrop
+        Positioned.fill(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 70.0, sigmaY: 70.0),
+            child: Container(
+              color: Colors.transparent,
+            ),
+          ),
+        ),
+        // Screen Content
+        Positioned.fill(child: widget.child),
+      ],
     );
   }
 }               
