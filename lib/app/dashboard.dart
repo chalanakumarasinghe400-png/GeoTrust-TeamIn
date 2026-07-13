@@ -676,7 +676,7 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
   }
 }
 
-class TruckOwnerScreen extends StatelessWidget {
+class TruckOwnerScreen extends StatefulWidget {
   final String numberPlate;
   final double capacity;
   final String chassisNumber;
@@ -689,9 +689,32 @@ class TruckOwnerScreen extends StatelessWidget {
   });
 
   @override
+  State<TruckOwnerScreen> createState() => _TruckOwnerScreenState();
+}
+
+class _TruckOwnerScreenState extends State<TruckOwnerScreen> {
+  late Future<List<TransportPermit>> _permitsFuture;
+  late LedgerService _ledger;
+
+  @override
+  void initState() {
+    super.initState();
+    _ledger = context.read<LedgerService>();
+    _permitsFuture = _ledger.getPermitsForTruck(widget.numberPlate);
+  }
+
+  @override
+  void didUpdateWidget(covariant TruckOwnerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.numberPlate != widget.numberPlate) {
+      _permitsFuture = _ledger.getPermitsForTruck(widget.numberPlate);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final ledger = context.watch<LedgerService>();
+    context.watch<LedgerService>();
 
     return AmbientGradientBackground(
       primaryColor: UserRole.driver.color,
@@ -701,7 +724,7 @@ class TruckOwnerScreen extends StatelessWidget {
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text(
-            'Truck: $numberPlate',
+            'Truck: ${widget.numberPlate}',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : const Color(0xFF1E293B),
@@ -724,7 +747,7 @@ class TruckOwnerScreen extends StatelessWidget {
         ),
         drawer: const AppDrawer(),
         body: FutureBuilder<List<TransportPermit>>(
-          future: ledger.getPermitsForTruck(numberPlate),
+          future: _permitsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -758,15 +781,15 @@ class TruckOwnerScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          _buildDetailRow('Plate Number', numberPlate, isDark),
+                          _buildDetailRow('Plate Number', widget.numberPlate, isDark),
                           _buildDetailRow(
                             'Chassis Number',
-                            chassisNumber,
+                            widget.chassisNumber,
                             isDark,
                           ),
                           _buildDetailRow(
                             'Capacity',
-                            '${capacity.toStringAsFixed(1)} m³',
+                            '${widget.capacity.toStringAsFixed(1)} m³',
                             isDark,
                           ),
                         ],
@@ -3698,159 +3721,165 @@ class _AmbientGradientBackgroundState extends State<AmbientGradientBackground>
 
     return Stack(
       children: [
-        // Base background gradient with deep blue tints
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [
-                      const Color(0xFF030712), // Deepest dark slate-blue
-                      const Color(0xFF070F26), // Deep Navy Blue
-                      const Color(0xFF0C1635), // Deep Sapphire Blue tint
-                    ]
-                  : [
-                      const Color(0xFFEFF6FF), // Soft azure blue tint
-                      const Color(0xFFFFFFFF), // Pure white
-                      const Color(0xFFDBEAFE), // Soft sky blue tint
+        RepaintBoundary(
+          child: Stack(
+            children: [
+              // Base background gradient with deep blue tints
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            const Color(0xFF030712), // Deepest dark slate-blue
+                            const Color(0xFF070F26), // Deep Navy Blue
+                            const Color(0xFF0C1635), // Deep Sapphire Blue tint
+                          ]
+                        : [
+                            const Color(0xFFEFF6FF), // Soft azure blue tint
+                            const Color(0xFFFFFFFF), // Pure white
+                            const Color(0xFFDBEAFE), // Soft sky blue tint
+                          ],
+                  ),
+                ),
+              ),
+              // Animated gradient blobs and glowing matching line waves
+              AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  final t = _controller.value;
+
+                  // Distribute coordinates wide across the screen corners to cover full screen
+                  final blob1X = size.width * (0.05 + 0.10 * sin(t * 2 * pi));
+                  final blob1Y = size.height * (0.05 + 0.10 * cos(t * 2 * pi));
+
+                  final blob2X = size.width * (0.95 - 0.10 * cos(t * 2 * pi));
+                  final blob2Y = size.height * (0.10 + 0.10 * sin(t * 2 * pi));
+
+                  final blob3X = size.width * (0.05 + 0.10 * cos(t * 2 * pi + pi));
+                  final blob3Y = size.height * (0.90 + 0.10 * sin(t * 2 * pi));
+
+                  final blob4X =
+                      size.width * (0.95 - 0.10 * sin(t * 2 * pi + pi / 2));
+                  final blob4Y = size.height * (0.90 - 0.10 * cos(t * 2 * pi));
+
+                  final primaryVibrant = _getVibrantColor(
+                    widget.primaryColor,
+                    isDark,
+                  );
+
+                  return Stack(
+                    children: [
+                      // Blob 1: Role Primary Color (Vibrant blue, wide spread)
+                      Positioned(
+                        left: blob1X - 300,
+                        top: blob1Y - 300,
+                        child: Container(
+                          width: 600,
+                          height: 600,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                primaryVibrant.withOpacity(isDark ? 0.35 : 0.28),
+                                primaryVibrant.withOpacity(isDark ? 0.15 : 0.10),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.6, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Blob 2: Vibrant Electric Indigo
+                      Positioned(
+                        left: blob2X - 350,
+                        top: blob2Y - 350,
+                        child: Container(
+                          width: 700,
+                          height: 700,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                const Color(
+                                  0xFF4F46E5,
+                                ).withOpacity(isDark ? 0.32 : 0.24),
+                                const Color(
+                                  0xFF4F46E5,
+                                ).withOpacity(isDark ? 0.12 : 0.08),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.6, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Blob 3: Vibrant Royal Blue
+                      Positioned(
+                        left: blob3X - 275,
+                        top: blob3Y - 275,
+                        child: Container(
+                          width: 550,
+                          height: 550,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                const Color(
+                                  0xFF2563EB,
+                                ).withOpacity(isDark ? 0.30 : 0.22),
+                                const Color(
+                                  0xFF2563EB,
+                                ).withOpacity(isDark ? 0.10 : 0.06),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.6, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Blob 4: Vibrant Electric Cobalt
+                      Positioned(
+                        left: blob4X - 300,
+                        top: blob4Y - 300,
+                        child: Container(
+                          width: 600,
+                          height: 600,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                const Color(
+                                  0xFF3B82F6,
+                                ).withOpacity(isDark ? 0.28 : 0.20),
+                                const Color(0xFF3B82F6).withOpacity(0.0),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Dynamic waving matching light beam lines (rendered under blur)
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: GlowingLightBeamsPainter(
+                            animationValue: t,
+                            isDark: isDark,
+                          ),
+                        ),
+                      ),
                     ],
-            ),
-          ),
-        ),
-        // Animated gradient blobs and glowing matching line waves
-        AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            final t = _controller.value;
-
-            // Distribute coordinates wide across the screen corners to cover full screen
-            final blob1X = size.width * (0.05 + 0.10 * sin(t * 2 * pi));
-            final blob1Y = size.height * (0.05 + 0.10 * cos(t * 2 * pi));
-
-            final blob2X = size.width * (0.95 - 0.10 * cos(t * 2 * pi));
-            final blob2Y = size.height * (0.10 + 0.10 * sin(t * 2 * pi));
-
-            final blob3X = size.width * (0.05 + 0.10 * cos(t * 2 * pi + pi));
-            final blob3Y = size.height * (0.90 + 0.10 * sin(t * 2 * pi));
-
-            final blob4X =
-                size.width * (0.95 - 0.10 * sin(t * 2 * pi + pi / 2));
-            final blob4Y = size.height * (0.90 - 0.10 * cos(t * 2 * pi));
-
-            final primaryVibrant = _getVibrantColor(
-              widget.primaryColor,
-              isDark,
-            );
-
-            return Stack(
-              children: [
-                // Blob 1: Role Primary Color (Vibrant blue, wide spread)
-                Positioned(
-                  left: blob1X - 300,
-                  top: blob1Y - 300,
-                  child: Container(
-                    width: 600,
-                    height: 600,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          primaryVibrant.withOpacity(isDark ? 0.35 : 0.28),
-                          primaryVibrant.withOpacity(isDark ? 0.15 : 0.10),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.6, 1.0],
-                      ),
-                    ),
-                  ),
+                  );
+                },
+              ),
+              // Apple-style heavy blur backdrop (increased to 75.0 for a seamless fluid blend)
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 75.0, sigmaY: 75.0),
+                  child: Container(color: Colors.transparent),
                 ),
-                // Blob 2: Vibrant Electric Indigo
-                Positioned(
-                  left: blob2X - 350,
-                  top: blob2Y - 350,
-                  child: Container(
-                    width: 700,
-                    height: 700,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          const Color(
-                            0xFF4F46E5,
-                          ).withOpacity(isDark ? 0.32 : 0.24),
-                          const Color(
-                            0xFF4F46E5,
-                          ).withOpacity(isDark ? 0.12 : 0.08),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.6, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-                // Blob 3: Vibrant Royal Blue
-                Positioned(
-                  left: blob3X - 275,
-                  top: blob3Y - 275,
-                  child: Container(
-                    width: 550,
-                    height: 550,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          const Color(
-                            0xFF2563EB,
-                          ).withOpacity(isDark ? 0.30 : 0.22),
-                          const Color(
-                            0xFF2563EB,
-                          ).withOpacity(isDark ? 0.10 : 0.06),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.6, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-                // Blob 4: Vibrant Electric Cobalt
-                Positioned(
-                  left: blob4X - 300,
-                  top: blob4Y - 300,
-                  child: Container(
-                    width: 600,
-                    height: 600,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          const Color(
-                            0xFF3B82F6,
-                          ).withOpacity(isDark ? 0.28 : 0.20),
-                          const Color(0xFF3B82F6).withOpacity(0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Dynamic waving matching light beam lines (rendered under blur)
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: GlowingLightBeamsPainter(
-                      animationValue: t,
-                      isDark: isDark,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        // Apple-style heavy blur backdrop (increased to 75.0 for a seamless fluid blend)
-        Positioned.fill(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 75.0, sigmaY: 75.0),
-            child: Container(color: Colors.transparent),
+              ),
+            ],
           ),
         ),
         // Screen Content (directly over the blurred background, no foreground sharp lines)
