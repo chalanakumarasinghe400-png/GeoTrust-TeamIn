@@ -9,6 +9,7 @@ class LedgerService extends ChangeNotifier {
   double currentMaxCapacity = 100.0;
 
   List<Map<String, dynamic>> userLocations = [];
+  List<Map<String, dynamic>> userTrucks = [];
   Map<String, String> locationIdToName = {};
 
   List<TransportPermit> mineTransactionHistory = [];
@@ -133,30 +134,42 @@ class LedgerService extends ChangeNotifier {
       
       final mines = await _repo.select('mines', filters: {'user_id': userId});
       final hardwares = await _repo.select('hardwares', filters: {'user_id': userId});
+      final trucks = await _repo.select('trucks', filters: {'user_id': userId});
       
       final locs = [
         ...mines.map((m) => {...m, 'id': m['mine_id'], 'name': m['mine_name'], 'location_type': 'MINE', 'inventory_cubes': m['current_cubes'], 'max_capacity': m['maximum_cubes'], 'latitude': m['latitude'], 'longitude': m['longitude']}),
         ...hardwares.map((h) => {...h, 'id': h['hardware_id'], 'name': h['hardware_name'], 'location_type': 'HARDWARE', 'inventory_cubes': h['current_cubes'], 'max_capacity': h['maximum_cubes'], 'latitude': h['latitude'], 'longitude': h['longitude']})
       ];
 
+      final mappedTrucks = trucks.map((t) => {
+        ...t,
+        'id': t['number_plate'],
+        'name': t['number_plate'],
+        'capacity': (t['capacity'] as num?)?.toDouble() ?? 10.0,
+        'chassis_number': t['chassis_number'] ?? '',
+      }).toList();
+
       final prefs = await SharedPreferences.getInstance();
       if (profile != null) {
         await prefs.setString('cached_profile_$userId', jsonEncode(profile));
       }
       await prefs.setString('cached_locs_$userId', jsonEncode(locs));
+      await prefs.setString('cached_trucks_$userId', jsonEncode(mappedTrucks));
 
-      return _applyUserProfile(userId, profile, locs);
+      return _applyUserProfile(userId, profile, locs, mappedTrucks);
     } catch (e) {
       print('Profile Load Error: $e');
       final prefs = await SharedPreferences.getInstance();
       final cachedProfileStr = prefs.getString('cached_profile_$userId');
       final cachedLocsStr = prefs.getString('cached_locs_$userId');
+      final cachedTrucksStr = prefs.getString('cached_trucks_$userId');
 
       if (cachedProfileStr != null && cachedLocsStr != null) {
         try {
           final profile = jsonDecode(cachedProfileStr);
           final locs = jsonDecode(cachedLocsStr);
-          return _applyUserProfile(userId, profile, locs);
+          final trucks = cachedTrucksStr != null ? jsonDecode(cachedTrucksStr) : [];
+          return _applyUserProfile(userId, profile, locs, trucks);
         } catch (decodeErr) {
           return false;
         }
@@ -165,10 +178,11 @@ class LedgerService extends ChangeNotifier {
     }
   }
 
-  bool _applyUserProfile(String userId, dynamic profile, dynamic locs) {
+  bool _applyUserProfile(String userId, dynamic profile, dynamic locs, [dynamic trucks]) {
     if (profile == null) return false;
 
     userLocations = List<Map<String, dynamic>>.from(locs ?? []);
+    userTrucks = List<Map<String, dynamic>>.from(trucks ?? []);
     locationIdToName = {
       for (final loc in userLocations) loc['id']: loc['name'] ?? 'Unnamed Location',
     };
@@ -263,6 +277,8 @@ class LedgerService extends ChangeNotifier {
     currentLocationId = null;
     currentUserRole = null;
     currentDriverPermit = null;
+    userLocations = [];
+    userTrucks = [];
     notifyListeners();
   }
 
@@ -283,20 +299,43 @@ class LedgerService extends ChangeNotifier {
     subscribeToInventory();
   }
 
-  Future<bool> issueNewPermit(String vehicle, double requestedQty, DateTime transportDate) async {
+  Future<String?> issueNewPermit(String vehicle, double requestedQty, DateTime transportDate) async {
+    // 1. Check if truck is registered in the system
+    try {
+      final truck = await _repo.selectOne('trucks', 'number_plate', vehicle);
+      if (truck == null) {
+        return 'ERROR: Truck is not registered in the system.';
+      }
+      
+      // 2. Check if quota is less than or equal to the capacity of the truck
+      final capacity = (truck['capacity'] as num?)?.toDouble() ?? 0.0;
+      if (requestedQty > capacity) {
+        return 'ERROR: Requested quantity ($requestedQty cubes) exceeds the truck capacity of $capacity cubes.';
+      }
+    } catch (e) {
+      print('Error verifying truck registration: $e');
+      return 'ERROR: Failed to verify truck registration. Please check connection.';
+    }
+
+    // 3. Check inventory quota
     if (requestedQty > currentInventoryCubes) {
-      return false;
+      return 'ERROR: Insufficient Quota! Remaining: $currentInventoryCubes cubes.';
     }
 
     final newPermitId = _generateUuidV4();
+    // Provide a temporary draft code to satisfy the NOT NULL constraint.
+    // It gets replaced with a real 6-digit code upon activation.
+    final draftCode = 'DRAFT-${newPermitId.replaceAll('-', '').substring(0, 8).toUpperCase()}';
     final newPermit = TransportPermit(
       id: newPermitId,
+      permitCode: draftCode,
       truckNumberPlate: vehicle,
       noOfCubes: requestedQty,
       startedDate: transportDate,
       expiryDate: transportDate.add(const Duration(days: 14)),
       mineId: currentUserRole == UserRole.mineOwner ? currentLocationId : null,
       hardwareId: currentUserRole == UserRole.hardwareOwner ? currentLocationId : null,
+      status: PermitStatus.pending,
     );
 
     try {
@@ -305,20 +344,24 @@ class LedgerService extends ChangeNotifier {
       final locationTable = isMine ? 'mines' : 'hardwares';
       final locationPk = isMine ? 'mine_id' : 'hardware_id';
 
-      await _repo.insert(
-        targetTable,
-        newPermit.toJson(),
-      );
+      await _repo.insert(targetTable, newPermit.toJson());
       await _repo.update(
         locationTable,
         {'current_cubes': currentInventoryCubes - requestedQty},
         eqColumn: locationPk,
         eqValue: currentLocationId!,
       );
-      return true;
+
+      // Immediately update local state so UI refreshes without waiting for stream
+      _permits.add(newPermit);
+      _permits.sort((a, b) => b.startedDate.compareTo(a.startedDate));
+      currentInventoryCubes -= requestedQty;
+      notifyListeners();
+
+      return null; // success
     } catch (e) {
       print('Error issuing permit: $e');
-      return false;
+      return 'ERROR: Failed to issue permit. ${e.toString()}';
     }
   }
 
@@ -336,6 +379,14 @@ class LedgerService extends ChangeNotifier {
         eqColumn: 'permit_id',
         eqValue: permitId,
       );
+
+      // Immediately update local state so UI shows code without navigating away
+      final idx = _permits.indexWhere((p) => p.id == permitId);
+      if (idx != -1) {
+        _permits[idx].status = PermitStatus.active;
+        _permits[idx].permitCode = generatedCode;
+        notifyListeners();
+      }
     } catch (e) {
       print('Error activating permit: $e');
     }
@@ -613,20 +664,46 @@ class LedgerService extends ChangeNotifier {
     await prefs.setStringList('offline_unloads', pendingQueue);
   }
 
-  Future<bool> issueMiniPermit(String vehicle, double requestedQty, DateTime transportDate) async {
-    if (requestedQty >= 5.0 || requestedQty > currentInventoryCubes) {
-      return false;
+  Future<String?> issueMiniPermit(String vehicle, double requestedQty, DateTime transportDate) async {
+    // 1. Check quantity limit
+    if (requestedQty >= 5.0) {
+      return 'ERROR: Mini-permit quantity must be less than 5 cubes.';
+    }
+
+    // 2. Check if truck is registered in the system
+    try {
+      final truck = await _repo.selectOne('trucks', 'number_plate', vehicle);
+      if (truck == null) {
+        return 'ERROR: Truck is not registered in the system.';
+      }
+      
+      // 3. Check if quota is less than or equal to the capacity of the truck
+      final capacity = (truck['capacity'] as num?)?.toDouble() ?? 0.0;
+      if (requestedQty > capacity) {
+        return 'ERROR: Requested quantity ($requestedQty cubes) exceeds the truck capacity of $capacity cubes.';
+      }
+    } catch (e) {
+      print('Error verifying truck registration: $e');
+      return 'ERROR: Failed to verify truck registration. Please check connection.';
+    }
+
+    // 4. Check inventory quota
+    if (requestedQty > currentInventoryCubes) {
+      return 'ERROR: Insufficient Quota! Remaining: $currentInventoryCubes cubes.';
     }
 
     final newPermitId = _generateUuidV4();
+    final draftCode = 'DRAFT-${newPermitId.replaceAll('-', '').substring(0, 8).toUpperCase()}';
     final newPermit = TransportPermit(
       id: newPermitId,
+      permitCode: draftCode,
       truckNumberPlate: vehicle,
       noOfCubes: requestedQty,
       startedDate: transportDate,
       expiryDate: transportDate.add(const Duration(days: 14)),
       mineId: currentUserRole == UserRole.mineOwner ? currentLocationId : null,
       hardwareId: currentUserRole == UserRole.hardwareOwner ? currentLocationId : null,
+      status: PermitStatus.pending,
     );
 
     try {
@@ -635,21 +712,24 @@ class LedgerService extends ChangeNotifier {
       final locationTable = isMine ? 'mines' : 'hardwares';
       final locationPk = isMine ? 'mine_id' : 'hardware_id';
 
-      await _repo.insert(
-        targetTable,
-        newPermit.toJson(),
-      );
+      await _repo.insert(targetTable, newPermit.toJson());
       await _repo.update(
         locationTable,
         {'current_cubes': currentInventoryCubes - requestedQty},
         eqColumn: locationPk,
         eqValue: currentLocationId!,
       );
+
+      // Immediately update local state so UI refreshes without waiting for stream
+      _permits.add(newPermit);
+      _permits.sort((a, b) => b.startedDate.compareTo(a.startedDate));
+      currentInventoryCubes -= requestedQty;
       notifyListeners();
-      return true;
+
+      return null; // success
     } catch (e) {
       print('Error issuing mini permit: $e');
-      return false;
+      return 'ERROR: Failed to issue mini permit. ${e.toString()}';
     }
   }
 
@@ -684,5 +764,22 @@ class LedgerService extends ChangeNotifier {
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
     final chars = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).toList();
     return '${chars.sublist(0, 4).join()}-${chars.sublist(4, 6).join()}-${chars.sublist(6, 8).join()}-${chars.sublist(8, 10).join()}-${chars.sublist(10, 16).join()}';
+  }
+
+  Future<List<TransportPermit>> getPermitsForTruck(String numberPlate) async {
+    try {
+      final minePermits = await _repo.select('mine_permits', filters: {'truck_number_plate': numberPlate});
+      final hwPermits = await _repo.select('hardware_permits', filters: {'truck_number_plate': numberPlate});
+      
+      final list = [
+        ...minePermits.map((p) => TransportPermit.fromJson(p)),
+        ...hwPermits.map((p) => TransportPermit.fromJson(p)),
+      ];
+      list.sort((a, b) => b.startedDate.compareTo(a.startedDate));
+      return list;
+    } catch (e) {
+      print('Error getting permits for truck: $e');
+      return [];
+    }
   }
 }

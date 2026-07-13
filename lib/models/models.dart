@@ -82,7 +82,7 @@ class TransportPermit {
   Map<String, dynamic> toJson() {
     return {
       'permit_id': id,
-      'permit_code': permitCode,
+      if (permitCode != null) 'permit_code': permitCode,
       'truck_number_plate': truckNumberPlate,
       'no_of_cubes': noOfCubes,
       // Using substring to send only the Date part (YYYY-MM-DD) for SQL DATE type

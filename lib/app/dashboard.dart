@@ -1,26 +1,5 @@
 part of '../app.dart';
 
-// Compatibility shim: LedgerService may be missing issueMiniPermit in some versions.
-// Provide a lightweight extension to avoid compile errors. Adjust implementation
-// to integrate with the real LedgerService as needed.
-extension LedgerServiceMiniPermit on LedgerService {
-  Future<bool> issueMiniPermit(String vehicleId, double quantity, DateTime when) async {
-    // Default implementation: return false to indicate failure.
-    // Replace with actual logic or bridge to LedgerService API if available.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    return false;
-  }
-}
-
-// Compatibility shim: LedgerService may be missing cancelExpiredDriverPermit in some versions.
-extension LedgerServiceCancelPermit on LedgerService {
-  Future<void> cancelExpiredDriverPermit() async {
-    // Default implementation: no-op.
-    // Replace with actual logic or bridge to LedgerService API if available.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-  }
-}
-
 // Shared status chip renderer used across multiple panels.
 Widget _buildStatusChip(PermitStatus status) {
   switch (status) {
@@ -72,14 +51,16 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
     var hardwares = ledger.userLocations
         .where((loc) => loc['location_type'] != 'MINE' && loc['location_type'] != 'MINE_OWNER')
         .toList();
+    var trucks = ledger.userTrucks;
 
     if (_searchQuery.isNotEmpty) {
       mines = mines.where((m) => (m['name'] ?? 'Mine').toLowerCase().contains(_searchQuery.toLowerCase())).toList();
       hardwares = hardwares.where((h) => (h['name'] ?? 'Hardware').toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+      trucks = trucks.where((t) => (t['number_plate'] ?? 'Truck').toLowerCase().contains(_searchQuery.toLowerCase())).toList();
     }
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: 75,
@@ -105,7 +86,7 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
                   child: TextField(
                     onChanged: (val) => setState(() => _searchQuery = val),
                     decoration: InputDecoration(
-                      hintText: 'Search locations...',
+                      hintText: 'Search locations or trucks...',
                       prefixIcon: const Icon(Icons.search),
                       filled: true,
                       fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.black26 : Colors.white.withOpacity(0.8),
@@ -123,6 +104,7 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
                   tabs: [
                     Tab(text: 'Mines', icon: Icon(Icons.landscape)),
                     Tab(text: 'Hardwares', icon: Icon(Icons.store)),
+                    Tab(text: 'Trucks', icon: Icon(Icons.local_shipping)),
                   ],
                 ),
               ],
@@ -134,6 +116,7 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
           children: [
             _buildLocationList(context, ledger, mines, true),
             _buildLocationList(context, ledger, hardwares, false),
+            _buildTruckList(context, ledger, trucks),
           ],
         ),
       ),
@@ -262,6 +245,244 @@ class _RolePortalScreenState extends State<RolePortalScreen> {
     );
   }
 
+  Widget _buildTruckList(
+    BuildContext context,
+    LedgerService ledger,
+    List<Map<String, dynamic>> trucks,
+  ) {
+    if (trucks.isEmpty) {
+      return const EmptyState(
+        icon: Icons.local_shipping_outlined,
+        message: 'No trucks registered or assigned to your account.',
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: trucks.length,
+      itemBuilder: (context, index) {
+        final truck = trucks[index];
+        final numberPlate = truck['number_plate'] ?? 'Unknown Truck';
+        final capacity = (truck['capacity'] as num?)?.toDouble() ?? 0.0;
+        final chassisNumber = truck['chassis_number'] ?? 'N/A';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: _buildTruckPortalCard(
+            context: context,
+            ledger: ledger,
+            numberPlate: numberPlate,
+            capacity: capacity,
+            chassisNumber: chassisNumber,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTruckPortalCard({
+    required BuildContext context,
+    required LedgerService ledger,
+    required String numberPlate,
+    required double capacity,
+    required String chassisNumber,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = Colors.blue;
+
+    return Card(
+      elevation: isDark ? 0 : 6,
+      shadowColor: isDark ? Colors.transparent : color.withOpacity(0.4),
+      color: isDark ? color.withOpacity(0.15) : color.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: isDark ? BorderSide(color: color.shade400.withOpacity(0.6), width: 1.5) : BorderSide.none,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TruckOwnerScreen(
+                numberPlate: numberPlate,
+                capacity: capacity,
+                chassisNumber: chassisNumber,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 48,
+                backgroundColor: isDark ? color.shade400 : color,
+                child: const Icon(Icons.local_shipping, color: Colors.white, size: 48),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                numberPlate,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24,
+                  color: isDark ? Colors.white : color.shade900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Capacity: ${capacity.toStringAsFixed(1)} m³',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isDark ? color.shade200 : color.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TruckOwnerScreen extends StatelessWidget {
+  final String numberPlate;
+  final double capacity;
+  final String chassisNumber;
+
+  const TruckOwnerScreen({
+    super.key,
+    required this.numberPlate,
+    required this.capacity,
+    required this.chassisNumber,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ledger = context.watch<LedgerService>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Truck: $numberPlate'),
+        backgroundColor: isDark ? Colors.blue.shade900 : Colors.blue.shade700,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            onPressed: () => Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const RolePortalScreen()),
+              (route) => false,
+            ),
+          ),
+        ],
+      ),
+      drawer: const AppDrawer(),
+      body: FutureBuilder<List<TransportPermit>>(
+        future: ledger.getPermitsForTruck(numberPlate),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error loading permits: ${snapshot.error}'));
+          }
+          final permits = snapshot.data ?? [];
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Card(
+                  color: isDark ? Colors.blue.shade900.withOpacity(0.2) : Colors.blue.shade50,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: isDark ? BorderSide(color: Colors.blue.shade400.withOpacity(0.5)) : BorderSide.none,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Truck Details',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: isDark ? Colors.blue.shade200 : Colors.blue.shade900,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildDetailRow('Plate Number', numberPlate, isDark),
+                        _buildDetailRow('Chassis Number', chassisNumber, isDark),
+                        _buildDetailRow('Capacity', '${capacity.toStringAsFixed(1)} m³', isDark),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Transport Permits History',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: permits.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No permits associated with this truck.',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: permits.length,
+                          itemBuilder: (context, index) {
+                            final permit = permits[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: PermitCard(permit: permit),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class MineOwnerScreen extends StatelessWidget {
@@ -311,9 +532,22 @@ class _RemainingPanelState extends State<_RemainingPanel> {
   final qtyCtrl = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _isSubmitting = false;
+  late LedgerService _ledger;
+
+  @override
+  void initState() {
+    super.initState();
+    _ledger = context.read<LedgerService>();
+    _ledger.addListener(_onLedgerChanged);
+  }
+
+  void _onLedgerChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    _ledger.removeListener(_onLedgerChanged);
     vehicleCtrl.dispose();
     qtyCtrl.dispose();
     super.dispose();
@@ -321,7 +555,7 @@ class _RemainingPanelState extends State<_RemainingPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final ledger = context.watch<LedgerService>();
+    final ledger = _ledger;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return RefreshIndicator(
       onRefresh: ledger.refreshData,
@@ -392,8 +626,12 @@ class _RemainingPanelState extends State<_RemainingPanel> {
       children: [
         TextField(
           controller: vehicleCtrl,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: [
+            TruckNumberFormatter(),
+          ],
           decoration: InputDecoration(
-            labelText: 'Transport Truck No. (e.g. WP LA-1234)',
+            labelText: 'Transport Truck No. (e.g. NW AA - 1234)',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
             prefixIcon: const Icon(Icons.local_shipping),
@@ -466,13 +704,13 @@ class _RemainingPanelState extends State<_RemainingPanel> {
                       return;
                     }
                     setState(() => _isSubmitting = true);
-                    final success = await ledger.issueNewPermit(
-                      vehicleCtrl.text,
+                    final errorMsg = await ledger.issueNewPermit(
+                      vehicleCtrl.text.trim(),
                       qty,
                       _selectedDate,
                     );
                     if (mounted) setState(() => _isSubmitting = false);
-                    if (success && context.mounted) {
+                    if (errorMsg == null && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Draft Permit Created!'),
@@ -483,8 +721,8 @@ class _RemainingPanelState extends State<_RemainingPanel> {
                       qtyCtrl.clear();
                     } else if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('ERROR: Insufficient Quota!'),
+                        SnackBar(
+                          content: Text(errorMsg ?? 'ERROR: Failed to issue permit.'),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -508,13 +746,51 @@ class _RemainingPanelState extends State<_RemainingPanel> {
   }
 }
 
-class _OngoingPanel extends StatelessWidget {
+
+class _OngoingPanel extends StatefulWidget {
   const _OngoingPanel();
 
   @override
+  State<_OngoingPanel> createState() => _OngoingPanelState();
+}
+
+class _OngoingPanelState extends State<_OngoingPanel> {
+  late LedgerService _ledger;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Unsubscribe from old instance (if any) and subscribe to the current one
+    final newLedger = context.read<LedgerService>();
+    if (newLedger != _ledger) {
+      try { _ledger.removeListener(_onLedgerChanged); } catch (_) {}
+      _ledger = newLedger;
+      _ledger.addListener(_onLedgerChanged);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _ledger = context.read<LedgerService>();
+    _ledger.addListener(_onLedgerChanged);
+  }
+
+  void _onLedgerChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _ledger.removeListener(_onLedgerChanged);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ledger = context.watch<LedgerService>();
-    final ongoingPermits = ledger.permits.where((p) => p.status != PermitStatus.completed).toList();
+    final ongoingPermits = _ledger.permits
+        .where((p) => p.status != PermitStatus.completed)
+        .toList();
 
     if (ongoingPermits.isEmpty) {
       return const EmptyState(
@@ -524,7 +800,7 @@ class _OngoingPanel extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: ledger.refreshData,
+      onRefresh: _ledger.refreshData,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -533,7 +809,7 @@ class _OngoingPanel extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          ...ongoingPermits.map((permit) => _buildManagerCard(context, ledger, permit)),
+          ...ongoingPermits.map((permit) => _buildManagerCard(context, _ledger, permit)),
         ],
       ),
     );
@@ -594,13 +870,20 @@ class _OngoingPanel extends StatelessWidget {
               ],
             ),
             const Divider(),
-            Text('Vehicle: ${(permit as dynamic).truckNumber} | ${((permit as dynamic).volume ?? (permit as dynamic).volumeCubes ?? (permit as dynamic).quantity ?? 0)} Cubes'),
-            if (permit.permitCode != null)
-              const Text(
-                'Driver Access Code: ',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
+            Text(
+              'Vehicle: ${permit.truckNumberPlate}  |  ${permit.noOfCubes} Cubes',
+              style: const TextStyle(fontSize: 14),
+            ),
+            if (permit.permitCode != null && !permit.permitCode!.startsWith('DRAFT-'))
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Driver Access Code: ${permit.permitCode}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                    fontSize: 15,
+                  ),
                 ),
               ),
             const SizedBox(height: 8),
@@ -960,10 +1243,14 @@ class _HardwareInventoryPanel extends StatelessWidget {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
+                   TextField(
                     controller: vehicleCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [
+                      TruckNumberFormatter(),
+                    ],
                     decoration: InputDecoration(
-                      labelText: 'Truck Registration',
+                      labelText: 'Truck Registration (e.g. NW AA - 1234)',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1009,14 +1296,14 @@ class _HardwareInventoryPanel extends StatelessWidget {
                             return;
                           }
                           setState(() => isSubmitting = true);
-                          final success = await ledger.issueMiniPermit(
-                            vehicleCtrl.text,
+                          final errorMsg = await ledger.issueMiniPermit(
+                            vehicleCtrl.text.trim(),
                             qty,
                             DateTime.now(),
                           );
                           if (!dialogContext.mounted) return;
                           Navigator.pop(dialogContext);
-                          if (success && screenContext.mounted) {
+                          if (errorMsg == null && screenContext.mounted) {
                             ScaffoldMessenger.of(screenContext).showSnackBar(
                               const SnackBar(
                                 content: Text('Mini Permit Issued!'),
@@ -1024,8 +1311,8 @@ class _HardwareInventoryPanel extends StatelessWidget {
                             );
                           } else if (screenContext.mounted) {
                             ScaffoldMessenger.of(screenContext).showSnackBar(
-                              const SnackBar(
-                                content: Text('Error: Must be < 5 cubes & within inventory!'),
+                              SnackBar(
+                                content: Text(errorMsg ?? 'Error issuing mini permit.'),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -1111,13 +1398,20 @@ class _HardwareOngoingPanel extends StatelessWidget {
               ],
             ),
             const Divider(),
-            Text('Vehicle: ${(permit as dynamic).truckNumber} | ${((permit as dynamic).volume ?? (permit as dynamic).volumeCubes ?? (permit as dynamic).quantity ?? 0)} Cubes'),
-            if (permit.permitCode != null)
-              const Text(
-                'Driver Access Code: ',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
+            Text(
+              'Vehicle: ${permit.truckNumberPlate}  |  ${permit.noOfCubes} Cubes',
+              style: const TextStyle(fontSize: 14),
+            ),
+            if (permit.permitCode != null && !permit.permitCode!.startsWith('DRAFT-'))
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Driver Access Code: ${permit.permitCode}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                    fontSize: 15,
+                  ),
                 ),
               ),
             const SizedBox(height: 8),
@@ -1139,6 +1433,61 @@ class _HardwareOngoingPanel extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class TruckNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final isDeleting = newValue.text.length < oldValue.text.length;
+
+    // Strip all formatting characters — work only with raw letters and digits
+    String newLetters = newValue.text
+        .replaceAll(RegExp(r'[^a-zA-Z]'), '')
+        .toUpperCase();
+    String newDigits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    final oldLetters = oldValue.text
+        .replaceAll(RegExp(r'[^a-zA-Z]'), '')
+        .toUpperCase();
+    final oldDigits = oldValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Cap at 4 each
+    if (newLetters.length > 4) newLetters = newLetters.substring(0, 4);
+    if (newDigits.length > 4) newDigits = newDigits.substring(0, 4);
+
+    // If the user pressed backspace but only deleted a separator (raw chars unchanged),
+    // manually remove one character: digits first, then letters.
+    if (isDeleting && newLetters == oldLetters && newDigits == oldDigits) {
+      if (newDigits.isNotEmpty) {
+        newDigits = newDigits.substring(0, newDigits.length - 1);
+      } else if (newLetters.isNotEmpty) {
+        newLetters = newLetters.substring(0, newLetters.length - 1);
+      }
+    }
+
+    // Build the formatted string
+    final buf = StringBuffer();
+
+    for (int i = 0; i < newLetters.length; i++) {
+      if (i == 2) buf.write(' '); // insert space after 2nd letter
+      buf.write(newLetters[i]);
+    }
+
+    // Auto-insert ' - ' immediately once all 4 letters are present
+    if (newLetters.length == 4) {
+      buf.write(' - ');
+      buf.write(newDigits);
+    }
+
+    final formatted = buf.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }               

@@ -11,7 +11,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 
+import 'package:flutter/foundation.dart';
 import 'supabase_config.dart';
 import 'firebase_options.dart';
 import 'models/models.dart';
@@ -28,15 +30,23 @@ part 'app/shared_widgets.dart';
 Future<void> bootstrapApp() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Initialize Firebase and messaging only on mobile platforms (Android/iOS)
+  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
+    try {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission();
+    } catch (e) {
+      print('Firebase initialization failed: $e');
+    }
+  } else {
+    print('Firebase skipped on this platform ($defaultTargetPlatform)');
+  }
 
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
-
-  final messaging = FirebaseMessaging.instance;
-  await messaging.requestPermission();
 
   runApp(const GeoTrustApp());
 }
