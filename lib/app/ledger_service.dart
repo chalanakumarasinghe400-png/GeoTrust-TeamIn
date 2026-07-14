@@ -252,17 +252,17 @@ class LedgerService extends ChangeNotifier {
 
   Future<bool> loginWithCredentials(String email, String password) async {
     try {
-      final response = await _repo.selectWhereSingle('user_accounts', {
-        'email': email,
-        'password_hashed': password,
-      });
+      final authResponse = await Supabase.instance.client.auth.signInWithPassword(
+        email: email.trim(),
+        password: password,
+      );
 
-      if (response == null) return false;
+      if (authResponse.user == null) return false;
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('loggedInUserId', response['user_id']);
+      await prefs.setString('loggedInUserId', authResponse.user!.id);
 
-      return await loadUserProfile(response['user_id']);
+      return await loadUserProfile(authResponse.user!.id);
     } catch (e) {
       print('Login Error: $e');
       return false;
@@ -273,6 +273,11 @@ class LedgerService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('loggedInUserId');
     await prefs.remove('savedDriverPermit');
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (e) {
+      print('Error signing out from Supabase Auth: $e');
+    }
     currentUser = null;
     currentLocationId = null;
     currentUserRole = null;

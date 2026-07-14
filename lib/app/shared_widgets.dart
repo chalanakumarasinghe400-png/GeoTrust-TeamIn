@@ -740,6 +740,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           setState(() => _isUpdating = false);
                           return;
                         }
+                        await Supabase.instance.client.auth.updateUser(
+                          UserAttributes(password: _newPasswordCtrl.text),
+                        );
                         await Supabase.instance.client
                             .from('user_accounts')
                             .update({'password_hashed': _newPasswordCtrl.text})

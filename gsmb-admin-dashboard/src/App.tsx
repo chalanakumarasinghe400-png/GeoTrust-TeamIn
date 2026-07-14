@@ -685,15 +685,26 @@ export default function App() {
     setAuditLogs(prev => [newLog, ...prev]);
   }, []);
 
+  // Central authenticated fetch helper
+  const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
+    const token = authToken || localStorage.getItem('gsmb-auth-token') || SUPABASE_ANON_KEY;
+    const headers = {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401) {
+      handleLogout();
+      throw new Error("Session expired. Please log in again.");
+    }
+    return response;
+  };
+
   // Fetch Supabase data with standard REST API
   const fetchSupabase = async (path: string) => {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await authenticatedFetch(`${SUPABASE_URL}/rest/v1/${path}`);
 
     if (!response.ok) {
       throw new Error(`Supabase request failed with status code ${response.status}`);
@@ -1150,12 +1161,14 @@ export default function App() {
   };
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(() => {
-      loadData(true);
-    }, 300000);
-    return () => clearInterval(interval);
-  }, []);
+    if (authToken) {
+      loadData();
+      const interval = setInterval(() => {
+        loadData(true);
+      }, 300000);
+      return () => clearInterval(interval);
+    }
+  }, [authToken]);
 
   // Compute distinct regions from current dataset
   const regionsList = useMemo(() => {
@@ -1395,12 +1408,9 @@ export default function App() {
         user_id: matchedUser.user_id || matchedUser.id || generateUUID(),
       };
 
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      const response = await authenticatedFetch(`${SUPABASE_URL}/rest/v1/${path}`, {
         method: 'POST',
         headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
           'Prefer': 'return=representation',
         },
         body: JSON.stringify(payload),
@@ -1470,12 +1480,9 @@ export default function App() {
 
         // Pre-insert/upsert truck to satisfy foreign key constraints
         try {
-          await fetch(`${SUPABASE_URL}/rest/v1/trucks`, {
+          await authenticatedFetch(`${SUPABASE_URL}/rest/v1/trucks`, {
             method: 'POST',
             headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-              'Content-Type': 'application/json',
               'Prefer': 'resolution=merge-duplicates',
             },
             body: JSON.stringify({
@@ -1513,12 +1520,9 @@ export default function App() {
           hardware_id: targetLocId,
         };
 
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        const response = await authenticatedFetch(`${SUPABASE_URL}/rest/v1/${path}`, {
           method: 'POST',
           headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
             'Prefer': 'return=representation',
           },
           body: JSON.stringify(payload),
@@ -1533,13 +1537,8 @@ export default function App() {
             const unloadedDate = getLocalDateString(now);
             const unloadedTime = now.toTimeString().split(' ')[0];
 
-            await fetch(`${SUPABASE_URL}/rest/v1/${unloadPath}`, {
+            await authenticatedFetch(`${SUPABASE_URL}/rest/v1/${unloadPath}`, {
               method: 'POST',
-              headers: {
-                apikey: SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json',
-              },
               body: JSON.stringify({
                 permit_id: permitId,
                 unloaded_latitude: 6.9271,
@@ -4329,12 +4328,9 @@ export default function App() {
       }
 
       // 3. Insert user details into public.user_accounts
-      const restResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_accounts`, {
+      const restResponse = await authenticatedFetch(`${SUPABASE_URL}/rest/v1/user_accounts`, {
         method: 'POST',
         headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
           'Prefer': 'return=representation'
         },
         body: JSON.stringify({
@@ -4417,12 +4413,9 @@ export default function App() {
       }
 
       // Insert truck into public.trucks
-      const restResponse = await fetch(`${SUPABASE_URL}/rest/v1/trucks`, {
+      const restResponse = await authenticatedFetch(`${SUPABASE_URL}/rest/v1/trucks`, {
         method: 'POST',
         headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
           'Prefer': 'return=representation'
         },
         body: JSON.stringify({
